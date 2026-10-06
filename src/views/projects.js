@@ -1,6 +1,7 @@
 // Projects tab: list (main + side), project page (milestones, timeline, nudges), new-project wizard.
 import { Store } from '../core/store.js';
 import { AI } from '../core/ai.js';
+import { Assistant, assistantErrorText } from '../core/assistant.js';
 import { S, $, esc, bar, wk, fmtDate, weekDate, typeIcon, STAGE_ICON } from '../ui/util.js';
 import { toast, sugBox, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
@@ -145,8 +146,12 @@ function viewNewProject({ a: ideaId }) {
       ${q.type === 'weeks' ? weeksSel(wiz.weeks) : q.type === 'hours' ? hoursSel(wiz.hoursPerWeek) : `<input class="inline-input" placeholder="${esc(q.placeholder)}" value="${esc(wiz[q.key])}" data-wiz="${q.key}" data-autofocus data-enter="wiz-answer">`}
       <button class="btn primary" data-action="wiz-answer">${wiz.qIdx < qs.length - 1 ? 'Next' : 'Draft the plan'}</button>`;
   }
+  if (wiz.step === 'drafting') {
+    return `${back}<div class="drafting"><span class="dots-anim"><i></i><i></i><i></i></span><h2>Drafting your plan…</h2>
+      <p class="muted">Milestones, first steps and an honest timeline for ${esc(wiz.weeks)} weeks at ~${esc(wiz.hoursPerWeek)} h/week.</p></div>`;
+  }
   const pl = wiz.plan;
-  return `${back}<h2>Here’s a first draft</h2><p class="estimate">🧭 ${esc(pl.estimateNote)}</p>
+  return `${back}<h2>Here’s a first draft</h2>${pl.note ? `<p class="muted small">${esc(pl.note)}</p>` : ''}<p class="estimate">🧭 ${esc(pl.estimateNote)}</p>
     <section class="card next"><h4>Your first steps</h4><ol>${pl.firstSteps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol><p class="muted small">Small on purpose. Each one should take under an hour.</p></section>
     <section class="field"><label>Milestones · ${wiz.weeks} weeks</label>
       ${pl.milestones.map((m, k) => `<div class="ms-edit"><span class="muted small">${wk(m)}</span><input class="inline-input" value="${esc(m.name)}" data-wiz-ms="${k}"><button class="x" data-action="wiz-rm-ms" data-k="${k}" aria-label="Remove">×</button>
@@ -178,10 +183,26 @@ function afterMilestone(projectId, res) {
   render(true);
 }
 
-function generate() {
+// real AI when available (signed in + enabled), rule-based templates otherwise or on error
+async function generate() {
   syncWiz();
   const { wiz } = ui;
-  wiz.plan = AI.plan({ idea: wiz.ideaId && Store.idea(wiz.ideaId), name: wiz.name, goal: wiz.goal || wiz.done, weeks: wiz.weeks, hoursPerWeek: wiz.hoursPerWeek, done: wiz.done });
+  if (wiz.step === 'drafting') return;
+  const args = { idea: wiz.ideaId && Store.idea(wiz.ideaId), name: wiz.name, goal: wiz.goal || wiz.done, weeks: wiz.weeks, hoursPerWeek: wiz.hoursPerWeek, done: wiz.done };
+  if (Assistant.available()) {
+    const back = wiz.step;
+    wiz.step = 'drafting';
+    render();
+    try {
+      wiz.plan = await Assistant.plan(args);
+    } catch (e) {
+      wiz.plan = { ...AI.plan(args), note: assistantErrorText(e) };
+    }
+    if (ui.wiz !== wiz) return; // user left the wizard meanwhile
+    if (!wiz.plan) wiz.step = back;
+  } else {
+    wiz.plan = AI.plan(args);
+  }
   wiz.step = 'preview';
   render();
 }

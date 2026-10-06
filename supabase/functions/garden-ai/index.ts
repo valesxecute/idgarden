@@ -1,13 +1,14 @@
-// Idea Garden AI (Supabase Edge Function, Deno). Deployed as "garden-ai".
-// Secrets: ANTHROPIC_API_KEY (Supabase → Edge Functions → Secrets). Never shipped to the browser.
+// Idea Garden AI (Supabase Edge Function, Deno). Deployed as "garden-ai". Provider: OpenAI (Responses API).
+// Secrets (Supabase → Edge Functions → Secrets), never shipped to the browser:
+//   OPENAI_API_KEY (required) · OPENAI_MODEL (optional, default gpt-6.1-sol; gpt-6-luna = ~20x cheaper)
 // Tasks:
 //   think: Think With Me reply for one idea      → { reply, questions[] }
 //   plan:  project roadmap for the new-project wizard → { estimateNote, firstSteps[], milestones[{name, weeks, tasks[]}] }
 // Signed-in users only; DAILY_LIMIT requests per user per day (public.bump_ai_usage, supabase/ai_usage.sql).
-import Anthropic from "npm:@anthropic-ai/sdk";
+import OpenAI from "npm:openai";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const MODEL = "claude-opus-5-5";
+const MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-6.1-sol";
 const DAILY_LIMIT = 60;
 
 const CORS = {
@@ -18,9 +19,9 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY
+const openai = new OpenAI(); // reads OPENAI_API_KEY
 
-// ---------- prompts (stable text first so it caches) ----------
+// ---------- prompts (stable text first: OpenAI caches repeated prefixes automatically) ----------
 const THINK_SYSTEM = `You are the creative partner inside Idea Garden, a calm app where people capture ideas, collect inspiration, and grow the good ones into real projects. You are talking with the owner of one idea. You can see that idea plus a few related items from their garden: other ideas, saved inspirations, learning goals and projects.
 
 How to be: curious, thoughtful and warm, but honest. Challenge assumptions when it helps the idea. Don't flatter or cheer, and don't pad. Keep replies short enough to read on a phone: usually under 150 words, using "• " bullet lines when listing. Mention the user's own garden items by name when they genuinely connect. Never invent garden items, sources, statistics or links; if something needs research, say what to look up.
@@ -125,21 +126,23 @@ Why it matters to them: ${clip(b.idea?.why, 600) || "(not written)"}
 Things they are learning: ${(b.learning ?? []).slice(0, 5).map((l: any) => clip(l, 150)).join(", ") || "(none)"}`;
 }
 
-async function ask(system: string, user: string, schema: object, maxTokens: number) {
-  // client.beta for server-side refusal fallbacks ("default" routes by refusal category)
-  const response = await anthropic.beta.messages.create({
+async function ask(system: string, user: string, name: string, schema: object, maxTokens: number, effort: "low" | "medium") {
+  const response = await openai.responses.create({
     model: MODEL,
-    max_tokens: maxTokens,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-    output_config: { effort: "medium", format: { type: "json_schema", schema } },
-    messages: [{ role: "user", content: user }],
-  } as any);
-  if (response.stop_reason === "refusal") return { refusal: true };
-  if (response.stop_reason === "max_tokens") throw new Error("response_truncated");
-  const text = response.content.find((b: any) => b.type === "text") as any;
-  return JSON.parse(text?.text ?? "{}");
+    max_output_tokens: maxTokens,
+    reasoning: { effort },
+    input: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    text: { format: { type: "json_schema", name, schema, strict: true } },
+  });
+  for (const out of response.output ?? []) {
+    if (out.type !== "message") continue;
+    for (const item of (out as any).content ?? []) if (item.type === "refusal") return { refusal: true };
+  }
+  if (response.status === "incomplete") throw new Error("response_truncated");
+  return JSON.parse(response.output_text || "{}");
 }
 
 // ---------- handler ----------
@@ -159,13 +162,13 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   try {
-    if (body.task === "think") return json(await ask(THINK_SYSTEM, thinkPrompt(body), THINK_SCHEMA, 4000));
-    if (body.task === "plan") return json(await ask(PLAN_SYSTEM, planPrompt(body), PLAN_SCHEMA, 8000));
+    if (body.task === "think") return json(await ask(THINK_SYSTEM, thinkPrompt(body), "think_reply", THINK_SCHEMA, 4000, "low"));
+    if (body.task === "plan") return json(await ask(PLAN_SYSTEM, planPrompt(body), "project_plan", PLAN_SCHEMA, 8000, "medium"));
     return json({ error: "unknown_task" }, 400);
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: "busy" }, 503);
-    if (e instanceof Anthropic.AuthenticationError) return json({ error: "ai_not_configured" }, 503);
-    if (e instanceof Anthropic.APIError) return json({ error: "ai_error", status: e.status }, 502);
+    if (e instanceof OpenAI.RateLimitError) return json({ error: "busy" }, 503);
+    if (e instanceof OpenAI.AuthenticationError) return json({ error: "ai_not_configured" }, 503);
+    if (e instanceof OpenAI.APIError) { console.error(e.status, e.message); return json({ error: "ai_error", status: e.status }, 502); }
     console.error(e);
     return json({ error: "ai_error" }, 500);
   }

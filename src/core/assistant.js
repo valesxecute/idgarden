@@ -1,4 +1,4 @@
-// Claude via the garden-ai Edge Function (supabase/functions/garden-ai). Signed-in users only;
+// Real AI (OpenAI) via the garden-ai Edge Function (supabase/functions/garden-ai). Signed-in users only;
 // callers fall back to the rule-based AI (core/ai.js) when unavailable or on error.
 // Privacy: sends only the current idea + up to 5 related items per kind, never the whole garden.
 import { Store } from './store.js';
@@ -8,11 +8,11 @@ import cfg from '../config.js';
 
 const ERRORS = {
   daily_limit: 'You’ve reached today’s AI limit. The simple assistant takes over until tomorrow.',
-  sign_in_required: 'Sign in to use Claude.',
-  ai_not_configured: 'Claude isn’t set up on the server yet.',
-  busy: 'Claude is busy right now. Try again in a minute.',
+  sign_in_required: 'Sign in to use the AI assistant.',
+  ai_not_configured: 'The AI assistant isn’t set up on the server yet.',
+  busy: 'The AI is busy right now. Try again in a minute.',
 };
-export const claudeErrorText = (e) => ERRORS[e?.code] || 'Couldn’t reach Claude, so the simple assistant answered instead.';
+export const assistantErrorText = (e) => ERRORS[e?.code] || 'Couldn’t reach the AI, so the simple assistant answered instead.';
 
 const ideaFields = (i) => ({ title: Store.ideaTitle(i), content: i.content, why: i.why, tags: i.tags, questions: i.questions, notes: i.notes });
 
@@ -31,7 +31,7 @@ function relatedFor(idea) {
   };
 }
 
-export const Claude = {
+export const Assistant = {
   available: () => !!cfg.ai && Sync.enabled && !!Sync.user && Store.state.user.aiEnabled !== false,
 
   // → { text, questions } in the same shape as AI.think()
@@ -39,7 +39,7 @@ export const Claude = {
     const history = Store.chat(idea.id).filter((m) => !m.pending).map((m) => ({ role: m.role, text: m.text }));
     const res = await Sync.invoke('garden-ai', { task: 'think', mode, text, idea: ideaFields(idea), related: relatedFor(idea), history });
     if (res.refusal) return { text: 'I can’t help with that one. Try a different angle?', questions: [] };
-    return { text: res.reply, questions: res.questions?.length ? res.questions : undefined, keep: true, action: mode === 'plan' ? 'to-project' : undefined, by: 'claude' };
+    return { text: res.reply, questions: res.questions?.length ? res.questions : undefined, keep: true, action: mode === 'plan' ? 'to-project' : undefined, by: 'ai' };
   },
 
   // → same shape as AI.plan(): { kind, milestones[], estimateNote, firstSteps[] }
@@ -64,6 +64,6 @@ export const Claude = {
       return ms;
     });
     milestones[milestones.length - 1].weekEnd = weeks;
-    return { kind: 'claude', milestones, estimateNote: res.estimateNote, firstSteps: res.firstSteps.slice(0, 3) };
+    return { kind: 'ai', milestones, estimateNote: res.estimateNote, firstSteps: res.firstSteps.slice(0, 3) };
   },
 };

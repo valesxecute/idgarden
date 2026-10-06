@@ -519,3 +519,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .sheet.ask { max-width: 420px; }
 .ask-text { font-size: 1.02rem; margin: .2rem 0 .4rem; }
 .btn.danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* AI waiting states */
+.dots-anim { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 6px; }
+.dots-anim i { width: 7px; height: 7px; border-radius: 50%; background: var(--ai); opacity: .35; animation: dotpulse 1.2s infinite ease-in-out; }
+.dots-anim i:nth-child(2) { animation-delay: .15s; } .dots-anim i:nth-child(3) { animation-delay: .3s; }
+@keyframes dotpulse { 0%, 80%, 100% { opacity: .25; transform: scale(.85); } 40% { opacity: 1; transform: scale(1); } }
+.msg.ai.pending p { color: var(--ink-soft); margin: 0; }
+.drafting { text-align: center; padding: 48px 16px; }
+.drafting .dots-anim i { width: 10px; height: 10px; }

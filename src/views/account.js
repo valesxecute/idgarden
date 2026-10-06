@@ -1,6 +1,7 @@
 // Account tab: sign-in / sync, garden style, interests, privacy, export / reset.
 import { Store } from '../core/store.js';
 import { Sync } from '../core/sync.js';
+import cfg from '../config.js';
 import { INTERESTS } from '../data/interests.js';
 import { sampleGarden } from '../data/sample.js';
 import { S, $, esc, avatarHTML, syncDot, SYNC_TEXT } from '../ui/util.js';
@@ -33,13 +34,16 @@ function viewAccount() {
     ${accountCard()}
     <section class="card"><h4>Garden style</h4><p class="muted small">How your garden looks on the home screen. More ways to customize your garden are coming.</p>
       <div class="chips">${GARDEN_STYLES.map(([k, l]) => `<button class="chip${gardenStyle() === k ? ' on' : ''}" data-action="garden-style" data-style="${k}">${l}</button>`).join('')}</div></section>
+    ${cfg.ai ? `<section class="card"><h4>AI assistant</h4>
+      <label class="task"><input type="checkbox" data-action="toggle-ai" ${st.user.aiEnabled !== false ? 'checked' : ''}> <span>Use AI for Think With Me and project plans</span></label>
+      <p class="muted small">${Sync.user ? 'Powered by OpenAI. Up to 60 AI requests a day. When off, a simple assistant on your device answers instead.' : 'Sign in to use the AI assistant. Guests get the simple on-device assistant.'}</p></section>` : ''}
     <section class="card"><h4>Your name <span class="muted small">(optional)</span></h4><input class="inline-input" value="${esc(st.user.name)}" data-bind="user::name" placeholder="Used only for greetings"></section>
     <section class="card"><h4>Interests</h4><p class="muted small">Shapes Discover. “Something different” always shows the rest.</p>
       <div class="chips">${INTERESTS.map((i) => `<button class="chip${st.user.interests.includes(i.id) ? ' on' : ''}" data-action="toggle-interest" data-id="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div></section>
     <section class="card"><h4>Privacy</h4>
       <ul class="plain"><li>Your ideas are private. Nothing is ever public by default.</li>
       <li>Signed in, your garden is stored in your account so it can sync. Only you can read it.</li>
-      <li>The assistant currently runs on your device with simple rules. When real AI is added, it will only see the idea you’re working on plus related items, and you’ll be able to turn it off.</li>
+      <li>AI assistant (when on, signed in): only the idea you’re working on plus up to 5 related items are sent to OpenAI to write a reply or plan, never your whole garden. Turn it off anytime above.</li>
       <li>You can export or delete everything at any time.</li></ul>
       <div class="row"><button class="btn" data-action="export">⬇ Export my garden (JSON)</button><button class="btn" data-action="load-sample">🌿 Load sample garden</button><button class="btn danger" data-action="reset">Delete everything on this device</button></div></section>`;
 }
@@ -59,6 +63,7 @@ export const actions = {
     toast(error ? 'Couldn’t send the link: ' + esc(error.message) : `📬 Check ${esc(email)} for your sign-in link.`, [], 9000);
   },
   'sync-now': () => Sync.syncNow(),
+  'toggle-ai': () => { S().user.aiEnabled = S().user.aiEnabled === false; Store.commit(); render(true); },
   'sign-out': async () => {
     if (!(await ask('Sign out? Your garden stays safe in your account. This device’s copy is removed until you sign in again.', { yes: 'Sign out' }))) return;
     await Sync.signOut();
