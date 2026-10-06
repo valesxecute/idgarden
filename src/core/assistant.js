@@ -1,4 +1,4 @@
-// Real AI (OpenAI) via the garden-ai Edge Function (supabase/functions/garden-ai). Signed-in users only;
+// Real AI (Gemini, OpenAI-compatible API) via the garden-ai Edge Function (supabase/functions/garden-ai). Signed-in users only;
 // callers fall back to the rule-based AI (core/ai.js) when unavailable or on error.
 // Privacy: sends only the current idea + up to 5 related items per kind, never the whole garden.
 import { Store } from './store.js';

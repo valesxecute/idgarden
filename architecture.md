@@ -61,7 +61,7 @@ hashchange → render() → router picks view(params) → shell()
 | Scenes | scenes.js | stable hash → spot; reserved spots for trees/sunflowers |
 
 ## AI (Phase 6)
-- `supabase/functions/garden-ai/index.ts`: Edge Function, OpenAI Responses API, strict JSON schema. Tasks `think` → {reply, questions}, `plan` → {estimateNote, firstSteps, milestones}
-- Secrets: `OPENAI_API_KEY` (required), `OPENAI_MODEL` (optional, default gpt-6.1-sol)
+- `supabase/functions/garden-ai/index.ts`: Edge Function, OpenAI-compatible Chat Completions (default Gemini free tier, `openai` npm SDK + baseURL), strict JSON schema. Tasks `think` → {reply, questions}, `plan` → {estimateNote, firstSteps, milestones}
+- Secrets: `GEMINI_API_KEY` (required), `AI_MODEL` (default gemini-3.8-flash), `AI_BASE_URL` (swap provider, e.g. Groq)
 - Gate: signed in + `bump_ai_usage()` RPC (supabase/ai_usage.sql), 60 calls/user/day
 - Client: `Assistant.available()` = cfg.ai + signed in + Account toggle on + server configured. Errors → rule-based reply + note

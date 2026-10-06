@@ -1,6 +1,8 @@
-// Idea Garden AI (Supabase Edge Function, Deno). Deployed as "garden-ai". Provider: OpenAI (Responses API).
+// Idea Garden AI (Supabase Edge Function, Deno). Deployed as "garden-ai".
+// Provider: any OpenAI-compatible Chat Completions API. Default: Google Gemini free tier.
 // Secrets (Supabase → Edge Functions → Secrets), never shipped to the browser:
-//   OPENAI_API_KEY (required) · OPENAI_MODEL (optional, default gpt-6.1-sol; gpt-6-luna = ~20x cheaper)
+//   GEMINI_API_KEY (required; free at aistudio.google.com) · AI_MODEL (optional, default gemini-3.8-flash)
+//   AI_BASE_URL (optional; e.g. https://api.groq.com/openai/v1 to use Groq instead)
 // Tasks:
 //   think: Think With Me reply for one idea      → { reply, questions[] }
 //   plan:  project roadmap for the new-project wizard → { estimateNote, firstSteps[], milestones[{name, weeks, tasks[]}] }
@@ -8,7 +10,9 @@
 import OpenAI from "npm:openai";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-6.1-sol";
+const API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("AI_API_KEY");
+const BASE_URL = Deno.env.get("AI_BASE_URL") || "https://generativelanguage.googleapis.com/v1beta/openai/";
+const MODEL = Deno.env.get("AI_MODEL") || "gemini-3.8-flash";
 const DAILY_LIMIT = 60;
 
 const CORS = {
@@ -19,12 +23,12 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-// created on first use: the SDK throws at construction when OPENAI_API_KEY is missing,
+// created on first use: the SDK throws at construction without a key,
 // which would crash every request (even the sign-in check) instead of answering "ai_not_configured"
 let openai: OpenAI | null = null;
-const client = () => (openai ??= new OpenAI());
+const client = () => (openai ??= new OpenAI({ apiKey: API_KEY, baseURL: BASE_URL }));
 
-// ---------- prompts (stable text first: OpenAI caches repeated prefixes automatically) ----------
+// ---------- prompts (stable text first: helps provider-side prompt caching) ----------
 const THINK_SYSTEM = `You are the creative partner inside Idea Garden, a calm app where people capture ideas, collect inspiration, and grow the good ones into real projects. You are talking with the owner of one idea. You can see that idea plus a few related items from their garden: other ideas, saved inspirations, learning goals and projects.
 
 How to be: curious, thoughtful and warm, but honest. Challenge assumptions when it helps the idea. Don't flatter or cheer, and don't pad. Keep replies short enough to read on a phone: usually under 150 words, using "• " bullet lines when listing. Mention the user's own garden items by name when they genuinely connect. Never invent garden items, sources, statistics or links; if something needs research, say what to look up.
@@ -129,23 +133,20 @@ Why it matters to them: ${clip(b.idea?.why, 600) || "(not written)"}
 Things they are learning: ${(b.learning ?? []).slice(0, 5).map((l: any) => clip(l, 150)).join(", ") || "(none)"}`;
 }
 
-async function ask(system: string, user: string, name: string, schema: object, maxTokens: number, effort: "low" | "medium") {
-  const response = await client().responses.create({
+async function ask(system: string, user: string, name: string, schema: object, maxTokens: number) {
+  const res = await client().chat.completions.create({
     model: MODEL,
-    max_output_tokens: maxTokens,
-    reasoning: { effort },
-    input: [
+    max_tokens: maxTokens,
+    messages: [
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    text: { format: { type: "json_schema", name, schema, strict: true } },
+    response_format: { type: "json_schema", json_schema: { name, schema, strict: true } },
   });
-  for (const out of response.output ?? []) {
-    if (out.type !== "message") continue;
-    for (const item of (out as any).content ?? []) if (item.type === "refusal") return { refusal: true };
-  }
-  if (response.status === "incomplete") throw new Error("response_truncated");
-  return JSON.parse(response.output_text || "{}");
+  const msg = res.choices?.[0]?.message;
+  if ((msg as any)?.refusal) return { refusal: true };
+  if (res.choices?.[0]?.finish_reason === "length") throw new Error("response_truncated");
+  return JSON.parse(msg?.content || "{}");
 }
 
 // ---------- handler ----------
@@ -161,14 +162,14 @@ Deno.serve(async (req) => {
   if (usageError || used === null) return json({ error: "sign_in_required" }, 401);
   if (used > DAILY_LIMIT) return json({ error: "daily_limit", limit: DAILY_LIMIT }, 429);
 
-  if (!Deno.env.get("OPENAI_API_KEY")) return json({ error: "ai_not_configured" }, 503);
+  if (!API_KEY) return json({ error: "ai_not_configured" }, 503);
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   try {
-    if (body.task === "think") return json(await ask(THINK_SYSTEM, thinkPrompt(body), "think_reply", THINK_SCHEMA, 4000, "low"));
-    if (body.task === "plan") return json(await ask(PLAN_SYSTEM, planPrompt(body), "project_plan", PLAN_SCHEMA, 8000, "medium"));
+    if (body.task === "think") return json(await ask(THINK_SYSTEM, thinkPrompt(body), "think_reply", THINK_SCHEMA, 4000));
+    if (body.task === "plan") return json(await ask(PLAN_SYSTEM, planPrompt(body), "project_plan", PLAN_SCHEMA, 8000));
     return json({ error: "unknown_task" }, 400);
   } catch (e) {
     if (e instanceof OpenAI.RateLimitError) return json({ error: "busy" }, 503);

@@ -8,12 +8,12 @@ Details per function → [ai.md](ai.md).
 - Depends on: normalized tables (see [sync.md](sync.md) "later") or embedding the JSON doc per item
 
 ## Done (2026-10-06)
-- Provider: OpenAI, Responses API, strict JSON schema
+- Provider: Gemini free tier via OpenAI-compatible Chat Completions (2026-10-06, was OpenAI: not free). Swappable via AI_BASE_URL/AI_MODEL
 - garden-ai Edge Function deployed; signed-in only; 60/day per user (ai_usage.sql)
 - Think With Me + project plan use AI; rule-based fallback on any error / AI off / key missing
 - Account: AI on/off toggle + privacy copy (current idea + ≤5 related per kind)
 - `cfg.ai = true`
 
 ## Open
-- `OPENAI_API_KEY` secret (user adds) → then live test think + plan
+- `GEMINI_API_KEY` secret (user adds) → then live test think + plan
 - organize + related via embeddings (pgvector)

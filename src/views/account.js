@@ -36,14 +36,14 @@ function viewAccount() {
       <div class="chips">${GARDEN_STYLES.map(([k, l]) => `<button class="chip${gardenStyle() === k ? ' on' : ''}" data-action="garden-style" data-style="${k}">${l}</button>`).join('')}</div></section>
     ${cfg.ai ? `<section class="card"><h4>AI assistant</h4>
       <label class="task"><input type="checkbox" data-action="toggle-ai" ${st.user.aiEnabled !== false ? 'checked' : ''}> <span>Use AI for Think With Me and project plans</span></label>
-      <p class="muted small">${Sync.user ? 'Powered by OpenAI. Up to 60 AI requests a day. When off, a simple assistant on your device answers instead.' : 'Sign in to use the AI assistant. Guests get the simple on-device assistant.'}</p></section>` : ''}
+      <p class="muted small">${Sync.user ? 'Powered by Google Gemini (free tier). Up to 60 AI requests a day. When off, a simple assistant on your device answers instead.' : 'Sign in to use the AI assistant. Guests get the simple on-device assistant.'}</p></section>` : ''}
     <section class="card"><h4>Your name <span class="muted small">(optional)</span></h4><input class="inline-input" value="${esc(st.user.name)}" data-bind="user::name" placeholder="Used only for greetings"></section>
     <section class="card"><h4>Interests</h4><p class="muted small">Shapes Discover. “Something different” always shows the rest.</p>
       <div class="chips">${INTERESTS.map((i) => `<button class="chip${st.user.interests.includes(i.id) ? ' on' : ''}" data-action="toggle-interest" data-id="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div></section>
     <section class="card"><h4>Privacy</h4>
       <ul class="plain"><li>Your ideas are private. Nothing is ever public by default.</li>
       <li>Signed in, your garden is stored in your account so it can sync. Only you can read it.</li>
-      <li>AI assistant (when on, signed in): only the idea you’re working on plus up to 5 related items are sent to OpenAI to write a reply or plan, never your whole garden. Turn it off anytime above.</li>
+      <li>AI assistant (when on, signed in): only the idea you’re working on plus up to 5 related items are sent to Google Gemini to write a reply or plan, never your whole garden. On the free tier Google may use this text to improve its products, so keep private details out. Turn it off anytime above.</li>
       <li>You can export or delete everything at any time.</li></ul>
       <div class="row"><button class="btn" data-action="export">⬇ Export my garden (JSON)</button><button class="btn" data-action="load-sample">🌿 Load sample garden</button><button class="btn danger" data-action="reset">Delete everything on this device</button></div></section>`;
 }

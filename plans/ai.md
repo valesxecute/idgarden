@@ -1,6 +1,6 @@
 # Plan: real AI behind `AI`
 
-Status 2026-10-06: `think` + `plan` live via OpenAI (core/assistant.js → garden-ai). `organize` + related still rules; embeddings later.
+Status 2026-10-06: `think` + `plan` live via Gemini free tier (OpenAI-compatible API) (core/assistant.js → garden-ai). `organize` + related still rules; embeddings later.
 
 Keep the UI contract and swap the internals. Calls go through a server endpoint (Supabase Edge Function), never a browser API key.
 
@@ -18,5 +18,5 @@ Keep the UI contract and swap the internals. Calls go through a server endpoint 
 - Settings toggle: AI off → fall back to the rule-based version (keep the current code)
 
 ## Open
-- Cost per active user (gpt-6.1-sol ≈1¢/reply; gpt-6-luna ~20× cheaper)
+- Free tier: rate limits per minute/day; Google may use free-tier prompts to improve products → privacy copy says so. Paid tier if it grows
 - Embedding refresh on edit (debounced)
