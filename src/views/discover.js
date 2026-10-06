@@ -8,6 +8,7 @@ import { toast, sheet, closeSheet, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 import { ui } from '../ui/state.js';
 import { openConnections } from './capture.js';
+import { Taste } from '../core/taste.js';
 
 const daySeed = () => Math.floor(Date.now() / Store.DAY);
 const shuffle = (arr, seed) => arr.map((x, k) => [x, ((seed + 1) * 9301 + k * 49297) % 233280]).sort((a, b) => a[1] - b[1]).map(([x]) => x);
@@ -29,36 +30,49 @@ function refreshQueries() {
   return [...new Set([...fromIdeas, ...shuffle(fromInterests, Date.now() % 9973)])].slice(0, 5);
 }
 
-function discoverCard(d) {
+function discoverCard(d, { different = false } = {}) {
   const saved = S().inspirations.some((s) => s.url === d.url);
   const g = interest(d.group);
-  return `<div class="card disc${Discover.newIds.has(d.id) ? ' is-new' : ''}">
-    ${Discover.newIds.has(d.id) ? '<span class="pill new">✨ New</span>' : ''}
+  const read = Taste.isRead(d.id);
+  const later = Taste.isLater(d.id);
+  return `<div class="card disc${Discover.newIds.has(d.id) && !read ? ' is-new' : ''}${read ? ' is-read' : ''}">
+    ${read ? '<span class="pill read">✓ Read</span>' : Discover.newIds.has(d.id) ? '<span class="pill new">✨ New</span>' : different ? '<span class="pill different">🌈 Something different</span>' : ''}
     <p class="eyebrow">${g ? g.emoji + ' ' + g.label : esc(d.group)} · ${esc(d.source)}${d.date ? ' · ' + ago(d.date) : ''}</p>
     ${d.kind === 'research' ? '<span class="pill research">🔬 Journal article</span>' : ''}
-    <h4><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)} ↗</a></h4>
+    <h4><a href="${esc(d.url)}" target="_blank" rel="noopener" data-action="disc-open" data-id="${d.id}">${esc(d.title)} ↗</a></h4>
     ${d.excerpt ? `<p class="muted small">${esc(short(d.excerpt, 200))}</p>` : ''}
-    ${saved ? '<span class="muted small">🦋 Saved</span>' : `<button class="btn sm" data-action="save-discover" data-id="${d.id}">🦋 Save</button>`}</div>`;
+    <div class="disc-actions">
+      ${saved ? '<span class="muted small">🦋 Saved</span>' : `<button class="btn sm" data-action="save-discover" data-id="${d.id}">🦋 Save</button>`}
+      ${read ? '' : `<button class="btn sm ghost${later ? ' on' : ''}" data-action="disc-later" data-id="${d.id}">${later ? '🔖 In reading list' : '🔖 Read later'}</button>`}
+      <button class="btn sm ghost quiet" data-action="disc-nope" data-id="${d.id}" title="Show less like this">🙈 Not interested</button>
+    </div></div>`;
 }
 
+// unread before read; within that, unseen/new first (Discover.freshFirst)
+const readLast = (list) => [...list.filter((d) => !Taste.isRead(d.id)), ...list.filter((d) => Taste.isRead(d.id))];
+const byTaste = (list) => list.map((d, k) => [d, Taste.score(d), k]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(([d]) => d);
+const DIFFERENT_EVERY = 10; // For you: 1 card in 10 from outside your interests
+
 function pickItems(tab, ints) {
-  const all = Discover.items;
+  const all = Discover.items.filter((d) => !Taste.isHidden(d.id));
   const mineGroups = ints.length ? ints : INTERESTS.map((i) => i.id).filter((g) => g !== 'news');
+  ui.discoverDifferent = new Set();
   if (tab === 'foryou') {
-    // mostly your interests, ~1 in 4 from elsewhere: diversity over filter bubbles
-    const a = Discover.freshFirst(diverse(all.filter((d) => mineGroups.includes(d.group))));
-    const b = Discover.freshFirst(shuffle(all.filter((d) => !mineGroups.includes(d.group) && d.group !== 'news'), daySeed()));
+    // your interests ranked by what you read / save / skip; rarely a card from elsewhere (skipped groups excluded)
+    const a = readLast(Discover.freshFirst(diverse(byTaste(shuffle(all.filter((d) => mineGroups.includes(d.group)), daySeed())))));
+    const b = byTaste(shuffle(all.filter((d) => !mineGroups.includes(d.group) && d.group !== 'news' && !Taste.isRead(d.id)), daySeed()))
+      .filter((d) => (S().reading.taste.groups[d.group] || 0) > -3);
     const out = [];
-    while (a.length || b.length) {
-      if (out.length % 4 === 3 && b.length) out.push(b.shift()); else if (a.length) out.push(a.shift()); else out.push(b.shift());
+    while (a.length) {
+      if (out.length % DIFFERENT_EVERY === DIFFERENT_EVERY - 3 && b.length) { const d = b.shift(); ui.discoverDifferent.add(d.id); out.push(d); }
+      out.push(a.shift());
     }
     return out;
   }
-  if (tab === 'different') return Discover.freshFirst(diverse(shuffle(all.filter((d) => !mineGroups.includes(d.group) && d.group !== 'news'), daySeed())));
-  if (tab === 'browse') return Discover.freshFirst(diverse(ui.discoverGroup === 'all' ? all : all.filter((d) => d.group === ui.discoverGroup)));
+  if (tab === 'browse') return readLast(Discover.freshFirst(diverse(ui.discoverGroup === 'all' ? all : all.filter((d) => d.group === ui.discoverGroup))));
   const p = Store.activeProjects().main;
-  return all.map((d) => ({ d, s: AI.similarity([p.name, p.goal, p.description].join(' '), Discover.text(d)).score }))
-    .filter((x) => x.s >= 2).sort((x, y) => y.s - x.s).map((x) => x.d);
+  return readLast(all.map((d) => ({ d, s: AI.similarity([p.name, p.goal, p.description].join(' '), Discover.text(d)).score }))
+    .filter((x) => x.s >= 2).sort((x, y) => y.s - x.s).map((x) => x.d));
 }
 
 function sourcesNote() {
@@ -74,11 +88,17 @@ function viewDiscover() {
   const st = S();
   const ints = st.user.interests;
   const main = Store.activeProjects().main;
-  const tabs = [['foryou', 'For you'], ['different', 'Something different'], ...(main ? [['project', 'For your project']] : []), ['browse', 'Browse'], ['saved', `My inspirations (${st.inspirations.length})`]];
+  const tabs = [['foryou', 'For you'], ...(main ? [['project', 'For your project']] : []), ['browse', 'Browse'], ['later', `🔖 Reading list${Taste.later.length ? ` (${Taste.later.length})` : ''}`], ['saved', `My inspirations (${st.inspirations.length})`]];
   if (!tabs.some(([k]) => k === ui.discoverTab)) ui.discoverTab = 'foryou';
   const tab = ui.discoverTab;
   let body;
-  if (tab === 'saved') {
+  if (tab === 'later') {
+    const hist = Taste.history.slice(0, ui.discoverLimit);
+    body = `${Taste.later.length ? `<div class="disc-grid">${Taste.later.map((d) => discoverCard(d)).join('')}</div>` : '<div class="empty-state"><p>Nothing saved for later. Tap 🔖 Read later on any card when you don’t have time right now.</p></div>'}
+      <h3 class="section-h">📖 Read history</h3>
+      ${hist.length ? `<div class="list history">${hist.map((d) => `<a class="history-row" href="${esc(d.url)}" target="_blank" rel="noopener"><span>${esc(d.title)}</span><span class="muted small">${esc(d.source)} · read ${ago(d.at)}</span></a>`).join('')}</div>` : '<p class="muted">Articles you open show up here.</p>'}
+      ${Taste.history.length > ui.discoverLimit ? '<div class="row center"><button class="btn" data-action="disc-more">Show more</button></div>' : ''}`;
+  } else if (tab === 'saved') {
     body = st.inspirations.length ? `<div class="list">${st.inspirations.map((s) => `<a class="card idea-card" href="#/inspiration/${s.id}"><span class="stage-ic">${typeIcon(s.type)}</span><div class="idea-card-body"><p class="idea-text">${esc(s.title)}</p>
       <p class="meta"><span>${ago(s.createdAt)}</span>${s.caught ? '<span>✍️ reflected</span>' : '<span class="muted">reflect later</span>'}${s.ideaIds.length ? `<span>🔗 ${s.ideaIds.length}</span>` : ''}</p></div></a>`).join('')}</div>`
       : '<div class="empty-state"><p>Your inspiration bank is empty. Save articles, papers, videos, books, anything. You can reflect on them later.</p></div>';
@@ -88,19 +108,18 @@ function viewDiscover() {
     const items = pickItems(tab, ints);
     ui.discoverShown = items.slice(0, ui.discoverLimit).map((d) => d.id);
     body = `
-      ${tab === 'different' ? '<p class="muted">Outside your usual interests, on purpose. Good ideas often come from unexpected places.</p>' : ''}
       ${tab === 'project' ? `<p class="muted">Picked for <strong>${esc(main.name)}</strong>.</p>` : ''}
       ${tab === 'browse' ? `<div class="chips group-chips"><button class="chip${ui.discoverGroup === 'all' ? ' on' : ''}" data-action="disc-group" data-group="all">All</button>${INTERESTS.map((i) => `<button class="chip${ui.discoverGroup === i.id ? ' on' : ''}" data-action="disc-group" data-group="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div>` : ''}
-      ${items.length ? `<div class="disc-grid">${items.slice(0, ui.discoverLimit).map(discoverCard).join('')}</div>` : '<div class="empty-state"><p>Nothing here yet.</p></div>'}
+      ${items.length ? `<div class="disc-grid">${items.slice(0, ui.discoverLimit).map((d) => discoverCard(d, { different: ui.discoverDifferent.has(d.id) })).join('')}</div>` : '<div class="empty-state"><p>Nothing here yet.</p></div>'}
       ${items.length > ui.discoverLimit ? '<div class="row center"><button class="btn" data-action="disc-more">Show more</button></div>' : '<p class="fine center">That’s everything for now. Discover has an end on purpose.</p>'}
       ${sourcesNote()}`;
   }
   return `
     <header class="page-head"><h1>Discover</h1>
-      ${tab !== 'saved' ? `<div class="refresh-wrap"><span class="muted small">${Discover.lastRefresh ? 'refreshed ' + ago(Discover.lastRefresh).replace('today', 'just now') : Discover.generatedAt ? 'updated ' + ago(Discover.generatedAt) : ''}</span>
+      ${tab !== 'saved' && tab !== 'later' ? `<div class="refresh-wrap"><span class="muted small">${Discover.lastRefresh ? 'refreshed ' + ago(Discover.lastRefresh).replace('today', 'just now') : Discover.generatedAt ? 'updated ' + ago(Discover.generatedAt) : ''}</span>
         <button class="btn${Discover.refreshing ? ' spinning' : ''}" data-action="disc-refresh" ${Discover.refreshing ? 'disabled' : ''}>↻ ${Discover.refreshing ? 'Finding new reads…' : 'Refresh'}</button></div>` : ''}</header>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="disc-tab" data-tab="${k}">${l}</button>`).join('')}</div>
-    ${tab === 'foryou' || tab === 'different' ? `<details class="interest-edit"><summary>Your interests: ${ints.length ? ints.map((x) => interest(x)?.label).filter(Boolean).join(', ') : 'none picked (showing everything)'}</summary>
+    ${tab === 'foryou' ? `<details class="interest-edit"><summary>Your interests: ${ints.length ? ints.map((x) => interest(x)?.label).filter(Boolean).join(', ') : 'none picked (showing everything)'}</summary>
       <div class="chips">${INTERESTS.map((i) => `<button class="chip${ints.includes(i.id) ? ' on' : ''}" data-action="toggle-interest" data-id="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div></details>` : ''}
     ${body}`;
 }
@@ -132,7 +151,9 @@ function viewInspiration({ a: id }) {
     </article>`;
 }
 
-const saveItem = (d) => Store.addInspiration({ url: d.url, title: d.title, type: Discover.inspirationType(d), note: d.excerpt ? `${d.source}: ${d.excerpt}` : d.source });
+// feed items rotate out of discover.json; reading-list / history snapshots keep them reachable
+const item = (id) => Discover.byId(id) || Taste.later.find((x) => x.id === id) || S().reading.read[id];
+const saveItem = (d) => (Taste.saved(d), Store.addInspiration({ url: d.url, title: d.title, type: Discover.inspirationType(d), note: d.excerpt ? `${d.source}: ${d.excerpt}` : d.source }));
 
 export const views = { discover: viewDiscover, inspiration: viewInspiration };
 
@@ -156,8 +177,30 @@ export const actions = {
     Store.commit();
     render(true);
   },
+  'disc-open': (el) => {
+    const d = item(el.dataset.id);
+    window.open(d.url, '_blank', 'noopener');
+    Taste.markRead(d);
+    render(true);
+  },
+  'disc-later': (el) => {
+    const d = item(el.dataset.id);
+    Taste.toggleLater(d);
+    render(true);
+    if (Taste.isLater(d.id)) toast('🔖 Added to your reading list.', [['Open list', 'disc-tab', { tab: 'later' }]]);
+  },
+  'disc-nope': (el) => {
+    const d = item(el.dataset.id);
+    Taste.notInterested(d);
+    render(true);
+    toast('🙈 Hidden. You’ll see less like this.', [['Undo', 'disc-nope-undo', { id: d.id }]]);
+  },
+  'disc-nope-undo': (el) => { Taste.undoNotInterested(item(el.dataset.id)); render(true); },
+  'reset-taste': async () => {
+    if (await ask('Forget what Discover learned about your taste? Hidden articles come back too.', { yes: 'Reset' })) { Taste.reset(); render(true); toast('Discover starts fresh.'); }
+  },
   'save-discover': (el) => {
-    const d = Discover.byId(el.dataset.id);
+    const d = item(el.dataset.id);
     const insp = saveItem(d);
     render(true);
     sheet(`<h3>🦋 Saved</h3><p><strong>${esc(d.title)}</strong></p><p class="muted">Want to note why? It’s optional. You can do it later.</p>
@@ -166,7 +209,7 @@ export const actions = {
       <div class="row end"><button class="btn ghost" data-action="reflect-skip" data-id="${insp.id}">Later</button><button class="btn primary" data-action="reflect-save" data-id="${insp.id}">Save reflection</button></div>`);
   },
   'save-discover-connect': (el) => {
-    const insp = saveItem(Discover.byId(el.dataset.id));
+    const insp = saveItem(item(el.dataset.id));
     Store.connectInspiration(insp.id, el.dataset.idea);
     if (el.dataset.key) Store.dismiss(el.dataset.key);
     render(true);

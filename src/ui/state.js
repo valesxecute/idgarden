@@ -4,6 +4,7 @@ export const ui = {
   wiz: null, // new-project wizard
   onb: { step: 0, text: '', ideaId: null },
   discoverTab: 'foryou',
+  discoverDifferent: new Set(), // For you cards from outside your interests (pill)
   discoverGroup: 'all',
   discoverLimit: 12,
   discoverShown: [], // ids on screen, marked seen on refresh

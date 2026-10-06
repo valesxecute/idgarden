@@ -17,7 +17,12 @@ Spec: original PRP (product prompt) + user sketches. Run: `node server.js` → h
 | 8 | Mobile polish: PWA, share-sheet capture, reminders | 📋 | [phase_8](plans/phase_8.md) |
 | – | Levels / gamification | 📋 later (user: “future”) | — |
 
-## Latest (P3 + P5, 2026-10-05)
+## Latest (Discover v2, 2026-10-06)
+- Not interested (hide + learn) · read = dimmed, sorted last, in history · 🔖 Reading list tab (+ read history)
+- Taste learning: group/source/keyword weights from read +1, later +1.5, save +2, skip −2. Reset in Account
+- “Something different” tab removed → 1 in 10 For you cards, labeled 🌈. Architecture showing without being picked = this mix (not a bug)
+
+## Earlier (P3 + P5, 2026-10-05)
 - Home: current project · 🌸 Add idea · last inspiration / side projects · learning / scene. Floating island default, planter box in Account → Garden style; meadow + level removed
 - Bottom nav on all sizes (sidebar gone). Add buttons: 🌸 idea (Ideas) · 🦋 inspiration (Discover) · 🍎 project (Projects) · 🌻 learning goal (Learn) · none on Garden (flower on page) and Account
 - Discover: no Wikipedia. `scripts/sources.json` → `data/discover.json` (~390 items). Research group = journal articles (Cell, Bioinformatics, PLOS, eLife, Nature papers, OpenAlex). Tabs: For you / Something different / For your project / Browse / My inspirations; sources listed at the bottom

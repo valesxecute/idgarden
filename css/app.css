@@ -528,3 +528,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .msg.ai.pending p { color: var(--ink-soft); margin: 0; }
 .drafting { text-align: center; padding: 48px 16px; }
 .drafting .dots-anim i { width: 10px; height: 10px; }
+
+/* v0.5 Discover: read state, reading list, not interested */
+.disc-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin-top: auto; padding-top: .4rem; }
+.disc .disc-actions .btn, .disc .disc-actions > span { margin-top: 0; }
+.disc-actions .quiet { margin-left: auto; opacity: .7; }
+.disc-actions .btn.on { background: var(--accent-soft); color: var(--accent); }
+.card.disc.is-read { opacity: .62; background: color-mix(in srgb, var(--line) 25%, var(--surface)); }
+.card.disc.is-read h4 a { color: var(--ink-soft); }
+.pill.read { background: color-mix(in srgb, var(--line) 60%, transparent); color: var(--ink-soft); align-self: flex-start; margin-bottom: .35rem; }
+.pill.different { background: color-mix(in srgb, #b98cf0 22%, transparent); color: #8a5bd0; align-self: flex-start; margin-bottom: .35rem; }
+.section-h { margin: 1.4rem 0 .6rem; font-size: 1rem; }
+.history { gap: 0; }
+.history-row { display: flex; flex-direction: column; gap: .1rem; padding: .6rem .2rem; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.history-row:hover span:first-child { text-decoration: underline; }

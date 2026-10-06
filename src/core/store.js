@@ -28,6 +28,7 @@ function emptyState() {
     learning: [],
     dismissed: [],
     chats: {},
+    reading: { read: {}, hidden: {}, later: [], taste: { groups: {}, sources: {}, words: {} } }, // Discover, see core/taste.js
     deleted: [], // tombstones so sync merges don't resurrect deleted items
     meta: { updatedAt: null, syncedAt: null, owner: null },
   };

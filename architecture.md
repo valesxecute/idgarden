@@ -10,6 +10,7 @@ src/
   core/
     store.js          state, localStorage, CRUD, derived (ideaStage, progress, activeProjects), tombstones, meta
     sync.js           Supabase auth (Google, email link) + local-first sync/merge → plans/sync.md
+    taste.js          Discover reading state (state.reading): read history, reading list, not-interested, taste weights → For you ranking
     ai.js             rule-based assistant: similarity, organize, think, plan → plans/ai.md
     assistant.js      real AI: think + plan via Sync.invoke('garden-ai'); falls back to ai.js on any error
   data/

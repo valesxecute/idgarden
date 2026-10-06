@@ -38,8 +38,9 @@ function viewAccount() {
       <label class="task"><input type="checkbox" data-action="toggle-ai" ${st.user.aiEnabled !== false ? 'checked' : ''}> <span>Use AI for Think With Me and project plans</span></label>
       <p class="muted small">${Sync.user ? 'Powered by Google Gemini (free tier). Up to 60 AI requests a day. When off, a simple assistant on your device answers instead.' : 'Sign in to use the AI assistant. Guests get the simple on-device assistant.'}</p></section>` : ''}
     <section class="card"><h4>Your name <span class="muted small">(optional)</span></h4><input class="inline-input" value="${esc(st.user.name)}" data-bind="user::name" placeholder="Used only for greetings"></section>
-    <section class="card"><h4>Interests</h4><p class="muted small">Shapes Discover. “Something different” always shows the rest.</p>
-      <div class="chips">${INTERESTS.map((i) => `<button class="chip${st.user.interests.includes(i.id) ? ' on' : ''}" data-action="toggle-interest" data-id="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div></section>
+    <section class="card"><h4>Interests</h4><p class="muted small">Shapes Discover. For you also learns from what you read, save and mark “not interested”, and now and then slips in something different.</p>
+      <div class="chips">${INTERESTS.map((i) => `<button class="chip${st.user.interests.includes(i.id) ? ' on' : ''}" data-action="toggle-interest" data-id="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div>
+      <button class="btn sm ghost" data-action="reset-taste">Reset what Discover learned</button></section>
     <section class="card"><h4>Privacy</h4>
       <ul class="plain"><li>Your ideas are private. Nothing is ever public by default.</li>
       <li>Signed in, your garden is stored in your account so it can sync. Only you can read it.</li>

@@ -21,6 +21,17 @@ const hasContent = (s) => !!(s && (s.ideas?.length || s.inspirations?.length || 
 // serialize sync operations so pushes and pulls never interleave
 const queue = (fn) => (busy = busy.then(fn, fn).catch((e) => { console.warn('[sync]', e); setStatus(navigator.onLine ? 'error' : 'offline'); }));
 
+function mergeReading(o = {}, n = {}) {
+  const later = new Map();
+  [...(o.later || []), ...(n.later || [])].forEach((x) => later.set(x.id, x));
+  const read = { ...(o.read || {}), ...(n.read || {}) };
+  return {
+    read, hidden: { ...(o.hidden || {}), ...(n.hidden || {}) },
+    later: [...later.values()].filter((x) => !read[x.id] || (n.later || []).some((y) => y.id === x.id)),
+    taste: n.taste || o.taste || { groups: {}, sources: {}, words: {} },
+  };
+}
+
 function merge(a, b) {
   const newer = ts(a.meta?.updatedAt) >= ts(b.meta?.updatedAt) ? a : b;
   const older = newer === a ? b : a;
@@ -38,6 +49,7 @@ function merge(a, b) {
     ideas: union('ideas'), inspirations: union('inspirations'), projects: union('projects'), learning: union('learning'),
     dismissed: [...new Set([...(a.dismissed || []), ...(b.dismissed || [])])],
     chats: { ...(older.chats || {}), ...(newer.chats || {}) },
+    reading: mergeReading(older.reading, newer.reading),
     deleted,
     meta: { ...newer.meta, updatedAt: new Date().toISOString() },
   };
