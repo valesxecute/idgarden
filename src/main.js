@@ -61,7 +61,7 @@ new MutationObserver(() => document.querySelectorAll('textarea[data-grow]:not([d
 const authError = new URLSearchParams(location.hash.slice(1)).get('error_description');
 if (authError) {
   history.replaceState(null, '', location.pathname);
-  setTimeout(() => toast(`Sign-in didn’t work: ${esc(authError.replace(/\+/g, ' '))}. Please try again.`, [], 10000), 300);
+  setTimeout(() => toast(`Sign-in didn’t work: ${esc(decodeURIComponent(authError.replace(/\+/g, ' ')).split(':')[0])}. Please try again.`, [], 10000), 300);
 }
 
 render();
