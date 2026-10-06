@@ -11,7 +11,7 @@ Spec: original PRP (product prompt) + user sketches. Run: `node server.js` → h
 | 2 | Feedback 2: sketch login + home, suggestions moved into context, main/side projects | ✅ | [phase_2](plans/phase_2.md) |
 | 3 | Cleanup: ES modules, views own their actions; feedback 3 UI (island default, bottom nav everywhere, per-section add buttons) | ✅ | [phase_3](plans/phase_3.md) |
 | 5 | Discover from credible sources (51 feeds + OpenAlex, daily) | ✅ | [phase_5](plans/phase_5.md) |
-| 4 | Publish: GitHub + Pages + Supabase + Google sign-in | ⏳ in progress, waiting on the user's accounts | [phase_4](plans/phase_4.md) |
+| 4 | Publish: GitHub + Pages + Supabase + Google sign-in | 🟡 live at https://valesxecute.github.io/idgarden/ · Supabase table + URLs done · Google provider = user | [phase_4](plans/phase_4.md) · [tutorial](plans/setup_tutorial.md) |
 | 6 | Real AI behind `AI` | 📋 | [phase_6](plans/phase_6.md) · [ai](plans/ai.md) |
 | 7 | Full 3D garden + garden customization (drag to arrange, choose home widgets) | 📋 | [phase_7](plans/phase_7.md) |
 | 8 | Mobile polish: PWA, share-sheet capture, reminders | 📋 | [phase_8](plans/phase_8.md) |
