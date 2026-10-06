@@ -33,7 +33,8 @@ scripts/
   build-discover.mjs  RSS/Atom + OpenAlex → data/discover.json (zero deps; CI runs it daily)
 data/discover.json    generated feed (committed copy = fallback)
 supabase/schema.sql   gardens table + RLS + realtime
-.github/workflows/deploy.yml   build feed → assemble _site → GitHub Pages (on push + daily)
+.github/workflows/deploy.yml   build feed → assemble _site → stamp versions → GitHub Pages (push + every 6 h)
+scripts/stamp-version.mjs      cache busting: ?v=<version> on every module import, index meta + version.json
 server.js             local static server (:5173), not deployed
 ```
 

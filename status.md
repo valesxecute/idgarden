@@ -24,7 +24,8 @@ Spec: original PRP (product prompt) + user sketches. Run: `node server.js` → h
 - Code: `js/app.js` (1,300 lines) → `src/` modules (see architecture.md)
 
 ## Known issues
-- GitHub Pages caches files ~10 min: right after a deploy a browser can mix old + new modules. Fix later: version the module URLs at deploy
+- (fixed 2026-10-06) Deploy caching: CI stamps every module URL with `?v=<commit>-<run>` (scripts/stamp-version.mjs); app polls `version.json` on open/tab focus and reloads once if a newer deploy is live
+- The Straits Times live feed sometimes blocks browser requests (CORS); refresh skips it safely
 - Concurrent-device merge tested only in code review + single-device restore; real 2-device check = next trial week
 - WHO News + Wondermind feeds stale (nothing in 60 days)
 
