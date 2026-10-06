@@ -34,6 +34,8 @@ jobs:
           mkdir -p _site
           cp -r index.html css src data _site/
           touch _site/.nojekyll
+      - name: Version-stamp files (cache busting)
+        run: node scripts/stamp-version.mjs _site "${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

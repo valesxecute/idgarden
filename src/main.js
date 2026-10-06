@@ -64,6 +64,22 @@ if (authError) {
   setTimeout(() => toast(`Sign-in didn’t work: ${esc(decodeURIComponent(authError.replace(/\+/g, ' ')).split(':')[0])}. Please try again.`, [], 10000), 300);
 }
 
+// stale-page check: GitHub Pages may serve a cached index.html for ~10 min after a deploy.
+// version.json is always fetched fresh; if a newer deploy is live, reload once (never mid-typing).
+const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || 'dev';
+async function checkForUpdate() {
+  if (APP_VERSION === 'dev' || typing()) return;
+  try {
+    const { version } = await (await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+    if (version && version !== APP_VERSION && sessionStorage.getItem('reloadedFor') !== version) {
+      sessionStorage.setItem('reloadedFor', version); // guard against reload loops
+      location.reload();
+    }
+  } catch {}
+}
+checkForUpdate();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+
 render();
 Sync.init();
 Discover.load().then(() => { if (['discover', 'idea', 'ideas'].includes(route().name)) render(true); });
