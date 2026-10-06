@@ -534,9 +534,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .disc .disc-actions .btn, .disc .disc-actions > span { margin-top: 0; }
 .disc-actions .quiet { margin-left: auto; opacity: .7; }
 .disc-actions .btn.on { background: var(--accent-soft); color: var(--accent); }
-.card.disc.is-read { opacity: .62; background: color-mix(in srgb, var(--line) 25%, var(--surface)); }
-.card.disc.is-read h4 a { color: var(--ink-soft); }
+.card.disc.read-fresh { background: color-mix(in srgb, #8fd19e 20%, var(--surface)); border-color: color-mix(in srgb, #5cb874 45%, var(--line)); }
+.card.disc.read-fresh .pill.read { background: color-mix(in srgb, #5cb874 22%, transparent); color: #2f8a4a; }
+.card.disc.read-old { opacity: .55; filter: grayscale(.6); background: color-mix(in srgb, var(--line) 25%, var(--surface)); }
+.card.disc.read-old h4 a { color: var(--ink-soft); }
+.card.disc.fade-in-grey { animation: fade-grey 1.2s ease; }
+@keyframes fade-grey { from { opacity: 1; filter: none; } }
 .pill.read { background: color-mix(in srgb, var(--line) 60%, transparent); color: var(--ink-soft); align-self: flex-start; margin-bottom: .35rem; }
+.card.disc.fading-out { transition: opacity .4s ease, transform .4s ease; opacity: 0; transform: scale(.96); }
+.nope-options { display: flex; flex-direction: column; gap: .5rem; margin: .8rem 0; }
+.nope-options .btn { justify-content: flex-start; text-align: left; }
 .pill.different { background: color-mix(in srgb, #b98cf0 22%, transparent); color: #8a5bd0; align-self: flex-start; margin-bottom: .35rem; }
 .section-h { margin: 1.4rem 0 .6rem; font-size: 1rem; }
 .history { gap: 0; }

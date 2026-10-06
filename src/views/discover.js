@@ -8,7 +8,7 @@ import { toast, sheet, closeSheet, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 import { ui } from '../ui/state.js';
 import { openConnections } from './capture.js';
-import { Taste } from '../core/taste.js';
+import { Taste, NOPE, READ_FRESH_MS } from '../core/taste.js';
 
 const daySeed = () => Math.floor(Date.now() / Store.DAY);
 const shuffle = (arr, seed) => arr.map((x, k) => [x, ((seed + 1) * 9301 + k * 49297) % 233280]).sort((a, b) => a[1] - b[1]).map(([x]) => x);
@@ -33,10 +33,12 @@ function refreshQueries() {
 function discoverCard(d, { different = false } = {}) {
   const saved = S().inspirations.some((s) => s.url === d.url);
   const g = interest(d.group);
-  const read = Taste.isRead(d.id);
+  const read = Taste.readState(d.id);
   const later = Taste.isLater(d.id);
-  return `<div class="card disc${Discover.newIds.has(d.id) && !read ? ' is-new' : ''}${read ? ' is-read' : ''}">
-    ${read ? '<span class="pill read">✓ Read</span>' : Discover.newIds.has(d.id) ? '<span class="pill new">✨ New</span>' : different ? '<span class="pill different">🌈 Something different</span>' : ''}
+  // just turned old: play the fade once instead of snapping grey
+  const fadeNow = read === 'old' && Date.now() - Date.parse(S().reading.read[d.id].at) < READ_FRESH_MS + 15000;
+  return `<div class="card disc${Discover.newIds.has(d.id) && !read ? ' is-new' : ''}${read ? ` is-read read-${read}${fadeNow ? ' fade-in-grey' : ''}` : ''}" data-card="${d.id}">
+    ${read ? `<span class="pill read">✓ Read${read === 'fresh' ? ' just now' : ''}</span>` : Discover.newIds.has(d.id) ? '<span class="pill new">✨ New</span>' : different ? '<span class="pill different">🌈 Something different</span>' : ''}
     <p class="eyebrow">${g ? g.emoji + ' ' + g.label : esc(d.group)} · ${esc(d.source)}${d.date ? ' · ' + ago(d.date) : ''}</p>
     ${d.kind === 'research' ? '<span class="pill research">🔬 Journal article</span>' : ''}
     <h4><a href="${esc(d.url)}" target="_blank" rel="noopener" data-action="disc-open" data-id="${d.id}">${esc(d.title)} ↗</a></h4>
@@ -49,7 +51,9 @@ function discoverCard(d, { different = false } = {}) {
 }
 
 // unread before read; within that, unseen/new first (Discover.freshFirst)
-const readLast = (list) => [...list.filter((d) => !Taste.isRead(d.id)), ...list.filter((d) => Taste.isRead(d.id))];
+// just-read cards stay in place (green); after READ_FRESH_MS they fade and sink to the end
+const old = (d) => Taste.readState(d.id) === 'old';
+const readLast = (list) => [...list.filter((d) => !old(d)), ...list.filter(old)];
 const byTaste = (list) => list.map((d, k) => [d, Taste.score(d), k]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(([d]) => d);
 const DIFFERENT_EVERY = 10; // For you: 1 card in 10 from outside your interests
 
@@ -60,7 +64,7 @@ function pickItems(tab, ints) {
   if (tab === 'foryou') {
     // your interests ranked by what you read / save / skip; rarely a card from elsewhere (skipped groups excluded)
     const a = readLast(Discover.freshFirst(diverse(byTaste(shuffle(all.filter((d) => mineGroups.includes(d.group)), daySeed())))));
-    const b = byTaste(shuffle(all.filter((d) => !mineGroups.includes(d.group) && d.group !== 'news' && !Taste.isRead(d.id)), daySeed()))
+    const b = byTaste(shuffle(all.filter((d) => !mineGroups.includes(d.group) && d.group !== 'news' && !old(d)), daySeed()))
       .filter((d) => (S().reading.taste.groups[d.group] || 0) > -3);
     const out = [];
     while (a.length) {
@@ -73,6 +77,20 @@ function pickItems(tab, ints) {
   const p = Store.activeProjects().main;
   return readLast(all.map((d) => ({ d, s: AI.similarity([p.name, p.goal, p.description].join(' '), Discover.text(d)).score }))
     .filter((x) => x.s >= 2).sort((x, y) => y.s - x.s).map((x) => x.d));
+}
+
+// reading / skipping updates taste, which would reshuffle the page under your finger:
+// keep the order until you switch tab/group, refresh or change interests; only aged-read cards sink
+let frozen = { key: '', ids: [] };
+const unfreeze = () => { frozen = { key: '', ids: [] }; };
+function stableOrder(tab, items) {
+  const key = tab + ':' + ui.discoverGroup;
+  if (frozen.key !== key) { frozen = { key, ids: items.map((d) => d.id) }; return items; }
+  const pos = new Map(frozen.ids.map((id, k) => [id, k]));
+  const known = items.filter((d) => pos.has(d.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
+  const out = readLast([...known, ...items.filter((d) => !pos.has(d.id))]);
+  frozen.ids = out.map((d) => d.id);
+  return out;
 }
 
 function sourcesNote() {
@@ -88,15 +106,16 @@ function viewDiscover() {
   const st = S();
   const ints = st.user.interests;
   const main = Store.activeProjects().main;
-  const tabs = [['foryou', 'For you'], ...(main ? [['project', 'For your project']] : []), ['browse', 'Browse'], ['later', `🔖 Reading list${Taste.later.length ? ` (${Taste.later.length})` : ''}`], ['saved', `My inspirations (${st.inspirations.length})`]];
+  const tabs = [['foryou', 'For you'], ...(main ? [['project', 'For your project']] : []), ['browse', 'Browse'], ['later', `🔖 Reading list${Taste.later.length ? ` (${Taste.later.length})` : ''}`], ['history', '📖 History'], ['saved', `My inspirations (${st.inspirations.length})`]];
   if (!tabs.some(([k]) => k === ui.discoverTab)) ui.discoverTab = 'foryou';
   const tab = ui.discoverTab;
   let body;
   if (tab === 'later') {
+    body = Taste.later.length ? `<div class="disc-grid">${Taste.later.map((d) => discoverCard(d)).join('')}</div>` : '<div class="empty-state"><p>Nothing saved for later. Tap 🔖 Read later on any card when you don’t have time right now.</p></div>';
+  } else if (tab === 'history') {
     const hist = Taste.history.slice(0, ui.discoverLimit);
-    body = `${Taste.later.length ? `<div class="disc-grid">${Taste.later.map((d) => discoverCard(d)).join('')}</div>` : '<div class="empty-state"><p>Nothing saved for later. Tap 🔖 Read later on any card when you don’t have time right now.</p></div>'}
-      <h3 class="section-h">📖 Read history</h3>
-      ${hist.length ? `<div class="list history">${hist.map((d) => `<a class="history-row" href="${esc(d.url)}" target="_blank" rel="noopener"><span>${esc(d.title)}</span><span class="muted small">${esc(d.source)} · read ${ago(d.at)}</span></a>`).join('')}</div>` : '<p class="muted">Articles you open show up here.</p>'}
+    body = `<p class="muted">Everything you’ve opened from Discover, newest first.</p>
+      ${hist.length ? `<div class="list history">${hist.map((d) => `<a class="history-row" href="${esc(d.url)}" target="_blank" rel="noopener"><span>${esc(d.title)}</span><span class="muted small">${interest(d.group)?.emoji || ''} ${esc(d.source)} · read ${ago(d.at)}</span></a>`).join('')}</div>` : '<div class="empty-state"><p>Articles you open show up here.</p></div>'}
       ${Taste.history.length > ui.discoverLimit ? '<div class="row center"><button class="btn" data-action="disc-more">Show more</button></div>' : ''}`;
   } else if (tab === 'saved') {
     body = st.inspirations.length ? `<div class="list">${st.inspirations.map((s) => `<a class="card idea-card" href="#/inspiration/${s.id}"><span class="stage-ic">${typeIcon(s.type)}</span><div class="idea-card-body"><p class="idea-text">${esc(s.title)}</p>
@@ -105,7 +124,7 @@ function viewDiscover() {
   } else if (Discover.status !== 'ready') {
     body = `<div class="empty-state"><p>${Discover.status === 'error' ? 'Couldn’t load Discover right now. Check your connection and try again.' : 'Gathering fresh reads…'}</p></div>`;
   } else {
-    const items = pickItems(tab, ints);
+    const items = stableOrder(tab, pickItems(tab, ints));
     ui.discoverShown = items.slice(0, ui.discoverLimit).map((d) => d.id);
     body = `
       ${tab === 'project' ? `<p class="muted">Picked for <strong>${esc(main.name)}</strong>.</p>` : ''}
@@ -116,7 +135,7 @@ function viewDiscover() {
   }
   return `
     <header class="page-head"><h1>Discover</h1>
-      ${tab !== 'saved' && tab !== 'later' ? `<div class="refresh-wrap"><span class="muted small">${Discover.lastRefresh ? 'refreshed ' + ago(Discover.lastRefresh).replace('today', 'just now') : Discover.generatedAt ? 'updated ' + ago(Discover.generatedAt) : ''}</span>
+      ${!['saved', 'later', 'history'].includes(tab) ? `<div class="refresh-wrap"><span class="muted small">${Discover.lastRefresh ? 'refreshed ' + ago(Discover.lastRefresh).replace('today', 'just now') : Discover.generatedAt ? 'updated ' + ago(Discover.generatedAt) : ''}</span>
         <button class="btn${Discover.refreshing ? ' spinning' : ''}" data-action="disc-refresh" ${Discover.refreshing ? 'disabled' : ''}>↻ ${Discover.refreshing ? 'Finding new reads…' : 'Refresh'}</button></div>` : ''}</header>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="disc-tab" data-tab="${k}">${l}</button>`).join('')}</div>
     ${tab === 'foryou' ? `<details class="interest-edit"><summary>Your interests: ${ints.length ? ints.map((x) => interest(x)?.label).filter(Boolean).join(', ') : 'none picked (showing everything)'}</summary>
@@ -151,6 +170,7 @@ function viewInspiration({ a: id }) {
     </article>`;
 }
 
+let fadeTimer = null;
 // feed items rotate out of discover.json; reading-list / history snapshots keep them reachable
 const item = (id) => Discover.byId(id) || Taste.later.find((x) => x.id === id) || S().reading.read[id];
 const saveItem = (d) => (Taste.saved(d), Store.addInspiration({ url: d.url, title: d.title, type: Discover.inspirationType(d), note: d.excerpt ? `${d.source}: ${d.excerpt}` : d.source }));
@@ -158,20 +178,22 @@ const saveItem = (d) => (Taste.saved(d), Store.addInspiration({ url: d.url, titl
 export const views = { discover: viewDiscover, inspiration: viewInspiration };
 
 export const actions = {
-  'disc-tab': (el, ev) => { ev?.preventDefault(); ui.discoverTab = el.dataset.tab; ui.discoverLimit = 12; go('#/discover'); },
-  'disc-group': (el) => { ui.discoverGroup = el.dataset.group; ui.discoverLimit = 12; render(true); },
+  'disc-tab': (el, ev) => { ev?.preventDefault(); ui.discoverTab = el.dataset.tab; ui.discoverLimit = 12; unfreeze(); go('#/discover'); },
+  'disc-group': (el) => { ui.discoverGroup = el.dataset.group; ui.discoverLimit = 12; unfreeze(); render(true); },
   'disc-more': () => { ui.discoverLimit += 12; render(true); },
   'disc-refresh': async () => {
     Discover.markSeen(ui.discoverShown || []);
     const pending = Discover.refresh(refreshQueries());
     render(true);
     const added = await pending;
+    unfreeze();
     ui.discoverLimit = 12;
     render();
     window.scrollTo(0, 0);
     toast(added ? `✨ ${added} new read${added > 1 ? 's' : ''} found. Showing a fresh batch.` : '🌿 Nothing new published yet. Here’s a fresh batch you haven’t seen.');
   },
   'toggle-interest': (el) => {
+    unfreeze();
     const u = S().user;
     u.interests = u.interests.includes(el.dataset.id) ? u.interests.filter((x) => x !== el.dataset.id) : [...u.interests, el.dataset.id];
     Store.commit();
@@ -182,6 +204,9 @@ export const actions = {
     window.open(d.url, '_blank', 'noopener');
     Taste.markRead(d);
     render(true);
+    // re-render when the green "just read" window ends so the card fades and sinks
+    clearTimeout(fadeTimer);
+    fadeTimer = setTimeout(() => { if (location.hash.startsWith('#/discover') && !document.querySelector('.sheet-wrap')) render(true); }, READ_FRESH_MS + 500);
   },
   'disc-later': (el) => {
     const d = item(el.dataset.id);
@@ -191,9 +216,20 @@ export const actions = {
   },
   'disc-nope': (el) => {
     const d = item(el.dataset.id);
-    Taste.notInterested(d);
-    render(true);
-    toast('🙈 Hidden. You’ll see less like this.', [['Undo', 'disc-nope-undo', { id: d.id }]]);
+    sheet(`<h3>🙈 Not interested</h3><p class="muted small">${esc(d.title)}</p><p>What’s the reason? It helps Discover learn.</p>
+      <div class="nope-options">${Object.entries(NOPE).map(([k, r]) => `<button class="btn" data-action="disc-nope-why" data-id="${d.id}" data-reason="${k}">${r.label}${k === 'source' ? ` <span class="muted small">(${esc(d.source)})</span>` : k === 'topic' ? ` <span class="muted small">(${esc(interest(d.group)?.label || d.group)})</span>` : ''}</button>`).join('')}</div>
+      <div class="row end"><button class="btn ghost" data-action="close-sheet">Cancel</button></div>`);
+  },
+  'disc-nope-why': (el) => {
+    const d = item(el.dataset.id);
+    closeSheet();
+    const card = document.querySelector(`[data-card="${d.id}"]`);
+    card?.classList.add('fading-out');
+    setTimeout(() => {
+      Taste.notInterested(d, el.dataset.reason);
+      render(true);
+      toast(el.dataset.reason === 'article' ? '🙈 Hidden.' : '🙈 Hidden. You’ll see less like this.', [['Undo', 'disc-nope-undo', { id: d.id }]]);
+    }, card ? 450 : 0);
   },
   'disc-nope-undo': (el) => { Taste.undoNotInterested(item(el.dataset.id)); render(true); },
   'reset-taste': async () => {

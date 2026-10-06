@@ -18,8 +18,10 @@ Spec: original PRP (product prompt) + user sketches. Run: `node server.js` → h
 | – | Levels / gamification | 📋 later (user: “future”) | — |
 
 ## Latest (Discover v2, 2026-10-06)
-- Not interested (hide + learn) · read = dimmed, sorted last, in history · 🔖 Reading list tab (+ read history)
-- Taste learning: group/source/keyword weights from read +1, later +1.5, save +2, skip −2. Reset in Account
+- Not interested → sheet: why? (topic / source / just this one) → card fades out, weights by reason, Undo
+- Read: light green “✓ Read just now” in place for 3 min → then fades grey + sinks to end. Page order frozen per visit (no reshuffle while reading)
+- Tabs: 🔖 Reading list · 📖 History (everything opened, newest first)
+- Taste learning: group/source/keyword weights; read +1, later +1.5, save +2. Reset in Account
 - “Something different” tab removed → 1 in 10 For you cards, labeled 🌈. Architecture showing without being picked = this mix (not a bug)
 
 ## Earlier (P3 + P5, 2026-10-05)
