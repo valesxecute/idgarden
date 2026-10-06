@@ -1,0 +1,74 @@
+{
+  "_note": "Discover sources. live = feed allows browser requests (CORS), re-fetched by the app's Refresh button. group = interest id shown in the app. kind: 'article' or 'research' (journal articles). Edit freely; rebuild with: node scripts/build-discover.mjs",
+  "perSource": 8,
+  "maxAgeDays": 60,
+  "sources": [
+    { "name": "Quanta Magazine", "url": "https://www.quantamagazine.org/feed/", "group": "science", "live": true },
+    { "name": "Science News", "url": "https://www.sciencenews.org/feed", "group": "science" },
+    { "name": "Knowable Magazine", "url": "https://knowablemagazine.org/rss", "group": "science" },
+    { "name": "Nature", "url": "https://www.nature.com/nature.rss", "group": "science", "split": "nature" },
+    { "name": "Scientific American", "url": "http://rss.sciam.com/ScientificAmerican-Global", "group": "science" },
+    { "name": "SciTechDaily", "url": "https://scitechdaily.com/feed/", "group": "science" },
+    { "name": "ScienceDaily", "url": "https://www.sciencedaily.com/rss/all.xml", "group": "science" },
+    { "name": "NASA", "url": "https://www.nasa.gov/feed/", "group": "science", "live": true },
+
+    { "name": "Cell", "url": "https://www.cell.com/cell/current.rss", "group": "research", "kind": "research" },
+    { "name": "Bioinformatics", "url": "https://academic.oup.com/rss/site_5139/3001.xml", "group": "research", "kind": "research" },
+    { "name": "PLOS Computational Biology", "url": "https://journals.plos.org/ploscompbiol/feed/atom", "group": "research", "kind": "research" },
+    { "name": "eLife", "url": "https://elifesciences.org/rss/recent.xml", "group": "research", "kind": "research" },
+    { "name": "PLOS ONE", "url": "https://journals.plos.org/plosone/feed/atom", "group": "research", "kind": "research" },
+
+    { "name": "WHO News", "url": "https://www.who.int/rss-feeds/news-english.xml", "group": "health", "live": true },
+    { "name": "STAT News", "url": "https://www.statnews.com/feed/", "group": "health" },
+    { "name": "Healthline", "url": "https://www.healthline.com/rss/health-news", "group": "health" },
+    { "name": "ScienceDaily: Health", "url": "https://www.sciencedaily.com/rss/health_medicine.xml", "group": "health" },
+
+    { "name": "Psyche", "url": "https://psyche.co/feed", "group": "psychology" },
+    { "name": "Behavioral Scientist", "url": "https://behavioralscientist.org/feed/", "group": "psychology" },
+    { "name": "Wondermind", "url": "https://www.wondermind.com/feed/", "group": "psychology" },
+    { "name": "ScienceDaily: Mind & Brain", "url": "https://www.sciencedaily.com/rss/mind_brain.xml", "group": "psychology" },
+
+    { "name": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/", "group": "tech" },
+    { "name": "MIT News", "url": "https://news.mit.edu/rss/feed", "group": "tech" },
+    { "name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "group": "tech" },
+    { "name": "Wired", "url": "https://www.wired.com/feed/rss", "group": "tech", "live": true },
+
+    { "name": "Nielsen Norman Group", "url": "https://www.nngroup.com/feed/rss/", "group": "design" },
+    { "name": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "group": "design" },
+    { "name": "Design Observer", "url": "https://designobserver.com/feed", "group": "design" },
+
+    { "name": "Dezeen", "url": "https://www.dezeen.com/feed/", "group": "architecture" },
+    { "name": "ArchDaily", "url": "https://www.archdaily.com/feed", "group": "architecture" },
+
+    { "name": "MIT Sloan Management Review", "url": "https://sloanreview.mit.edu/feed/", "group": "business", "live": true },
+    { "name": "Knowledge at Wharton", "url": "https://knowledge.wharton.upenn.edu/feed/", "group": "business" },
+    { "name": "Inc.", "url": "https://www.inc.com/rss/", "group": "business", "live": true },
+    { "name": "Business Insider", "url": "https://feeds.businessinsider.com/custom/all", "group": "business" },
+
+    { "name": "Hechinger Report", "url": "https://hechingerreport.org/feed/", "group": "education" },
+    { "name": "The Conversation", "url": "https://theconversation.com/global/articles.atom", "group": "education" },
+    { "name": "Harvard Gazette", "url": "https://news.harvard.edu/gazette/feed/", "group": "education" },
+
+    { "name": "Aeon", "url": "https://aeon.co/feed.rss", "group": "culture" },
+    { "name": "Noema", "url": "https://www.noemamag.com/feed/", "group": "culture" },
+    { "name": "Big Think", "url": "https://bigthink.com/feed/", "group": "culture" },
+    { "name": "Smithsonian Magazine", "url": "https://www.smithsonianmag.com/rss/latest_articles/", "group": "culture" },
+    { "name": "The Public Domain Review", "url": "https://publicdomainreview.org/rss.xml", "group": "culture" },
+    { "name": "History of Yesterday", "url": "https://historyofyesterday.com/feed", "group": "culture" },
+
+    { "name": "Literary Hub", "url": "https://lithub.com/feed/", "group": "writing" },
+    { "name": "The Marginalian", "url": "https://www.themarginalian.org/feed/", "group": "writing" },
+
+    { "name": "ScienceDaily: Nutrition", "url": "https://www.sciencedaily.com/rss/health_medicine/nutrition.xml", "group": "food" },
+
+    { "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/rss.xml", "group": "news" },
+    { "name": "NPR", "url": "https://feeds.npr.org/1001/rss.xml", "group": "news" },
+    { "name": "The Guardian", "url": "https://www.theguardian.com/uk/rss", "group": "news" },
+    { "name": "Vox", "url": "https://www.vox.com/rss/index.xml", "group": "news" },
+    { "name": "The Straits Times", "url": "https://www.straitstimes.com/news/world/rss.xml", "group": "news", "live": true }
+  ],
+  "openalex": {
+    "perQuery": 4,
+    "queries": ["creativity", "habit formation", "science communication", "human-computer interaction", "learning and memory", "drug combination", "machine learning biology"]
+  }
+}

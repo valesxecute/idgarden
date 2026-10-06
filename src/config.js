@@ -1,0 +1,6 @@
+// Public client config. The publishable key is safe to ship: row-level security
+// (supabase/schema.sql) limits every user to their own garden. Empty = guest-only mode.
+export default {
+  supabaseUrl: 'https://norkkufzahqbbntppmrr.supabase.co',
+  supabaseAnonKey: 'sb_publishable_NCmgPpttTZfbxTCJvRB4YA_0gWJGd1V',
+};
