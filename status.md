@@ -7,11 +7,11 @@ Spec: original PRP (product prompt) + user sketches. Run: `node server.js` → h
 | # | Phase | State | Plan |
 |---|---|---|---|
 | 0 | Prototype: core loop | ✅ | [phase_0](plans/phase_0.md) |
-| 1 | Feedback 1: accounts+sync code, terrarium, milestones gray→green, cuter | ✅ · ⚠️ sync untested until P4 | [phase_1](plans/phase_1.md) |
+| 1 | Feedback 1: accounts+sync code, terrarium, milestones gray→green, cuter | ✅ (sync verified live in P4) | [phase_1](plans/phase_1.md) |
 | 2 | Feedback 2: sketch login + home, suggestions moved into context, main/side projects | ✅ | [phase_2](plans/phase_2.md) |
 | 3 | Cleanup: ES modules, views own their actions; feedback 3 UI (island default, bottom nav everywhere, per-section add buttons) | ✅ | [phase_3](plans/phase_3.md) |
 | 5 | Discover from credible sources (51 feeds + OpenAlex, daily) | ✅ | [phase_5](plans/phase_5.md) |
-| 4 | Publish: GitHub + Pages + Supabase + Google sign-in | 🟡 live at https://valesxecute.github.io/idgarden/ · Supabase table + URLs done · Google provider = user | [phase_4](plans/phase_4.md) · [tutorial](plans/setup_tutorial.md) |
+| 4 | Publish: GitHub + Pages + Supabase + Google sign-in | ✅ live https://valesxecute.github.io/idgarden/ · Google login, cloud save, restore on fresh device, RLS verified (2026-10-06) | [phase_4](plans/phase_4.md) · [tutorial](plans/setup_tutorial.md) |
 | 6 | Real AI behind `AI` | 📋 | [phase_6](plans/phase_6.md) · [ai](plans/ai.md) |
 | 7 | Full 3D garden + garden customization (drag to arrange, choose home widgets) | 📋 | [phase_7](plans/phase_7.md) |
 | 8 | Mobile polish: PWA, share-sheet capture, reminders | 📋 | [phase_8](plans/phase_8.md) |
@@ -23,9 +23,10 @@ Spec: original PRP (product prompt) + user sketches. Run: `node server.js` → h
 - Discover: no Wikipedia. `scripts/sources.json` → `data/discover.json` (~390 items). Research group = journal articles (Cell, Bioinformatics, PLOS, eLife, Nature papers, OpenAlex). Tabs: For you / Something different / For your project / Browse / My inspirations; sources listed at the bottom
 - Code: `js/app.js` (1,300 lines) → `src/` modules (see architecture.md)
 
-## Blockers (P4)
-- User: Supabase project URL + anon key, Google OAuth client, empty GitHub repo, git commit name
-- WHO News + Wondermind feeds are stale (nothing in 60 days) → kept in the list, they show up when they post again
+## Known issues
+- GitHub Pages caches files ~10 min: right after a deploy a browser can mix old + new modules. Fix later: version the module URLs at deploy
+- Concurrent-device merge tested only in code review + single-device restore; real 2-device check = next trial week
+- WHO News + Wondermind feeds stale (nothing in 60 days)
 
 ## Known gaps
 - Assistant uses rules, not an LLM (keyword overlap → some loose matches)
