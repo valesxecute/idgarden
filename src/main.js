@@ -2,8 +2,8 @@
 import { Store } from './core/store.js';
 import { Sync } from './core/sync.js';
 import { Discover } from './data/discover.js';
-import { S } from './ui/util.js';
-import { closeSheet } from './ui/components.js';
+import { S, esc } from './ui/util.js';
+import { closeSheet, toast } from './ui/components.js';
 import { registerViews, registerOnboarding, render, route, go } from './ui/router.js';
 import { registerActions, registerEnter, wireEvents, isDragging } from './ui/events.js';
 import * as home from './views/home.js';
@@ -56,6 +56,13 @@ Sync.onChange(() => { if (!typing() && !isDragging()) render(true); });
 // auto-size growable textareas after each render
 new MutationObserver(() => document.querySelectorAll('textarea[data-grow]:not([data-sized])').forEach((t) => { t.dataset.sized = 1; t.style.height = t.scrollHeight + 'px'; }))
   .observe(document.getElementById('app'), { childList: true, subtree: true });
+
+// a failed sign-in comes back as #error=…&error_description=…: say so instead of silently showing login again
+const authError = new URLSearchParams(location.hash.slice(1)).get('error_description');
+if (authError) {
+  history.replaceState(null, '', location.pathname);
+  setTimeout(() => toast(`Sign-in didn’t work: ${esc(authError.replace(/\+/g, ' '))}. Please try again.`, [], 10000), 300);
+}
 
 render();
 Sync.init();
