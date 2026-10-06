@@ -2,7 +2,7 @@
 import { Store } from '../core/store.js';
 import { AI } from '../core/ai.js';
 import { S, $, esc, bar, wk, fmtDate, weekDate, typeIcon, STAGE_ICON } from '../ui/util.js';
-import { toast, sugBox, notFound } from '../ui/components.js';
+import { toast, sugBox, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 import { ui } from '../ui/state.js';
 
@@ -220,7 +220,7 @@ export const actions = {
   },
   'project-done': (el) => { Store.updateProject(el.dataset.id, { status: 'done' }); render(true); toast('✨ Project complete. Your tree is fully grown.'); },
   'project-reopen': (el) => { Store.updateProject(el.dataset.id, { status: 'active' }); render(true); },
-  'delete-project': (el) => { if (confirm('Delete this project? The idea goes back to the terrarium.')) { Store.deleteProject(el.dataset.id); go('#/projects'); } },
+  'delete-project': async (el) => { if (await ask('Delete this project? The idea goes back to the terrarium.', { yes: 'Delete', danger: true })) { Store.deleteProject(el.dataset.id); go('#/projects'); } },
   'break-down': (el) => {
     const p = Store.project(el.dataset.p);
     const m = p.milestones.find((x) => x.id === el.dataset.m);

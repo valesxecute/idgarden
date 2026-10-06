@@ -152,9 +152,21 @@ export const Sync = {
     return client.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
   },
   syncNow() { return queue(pull); },
+  // call a Supabase Edge Function as the signed-in user; throws Error with .code from the function's {error}
+  async invoke(name, body) {
+    const { data, error } = await client.functions.invoke(name, { body });
+    if (error) {
+      let detail = null;
+      try { detail = await error.context?.json(); } catch {}
+      throw Object.assign(new Error(detail?.error || error.message), { code: detail?.error || 'network', status: error.context?.status });
+    }
+    return data;
+  },
   async signOut() {
-    await busy;
-    await client.auth.signOut();
+    // let a running sync finish, but never hang on it; always sign this device out, even offline
+    await Promise.race([busy, new Promise((r) => setTimeout(r, 3000))]);
+    try { await client.auth.signOut(); } catch { await client.auth.signOut({ scope: 'local' }).catch(() => {}); }
+    if (channel) { client.removeChannel(channel); channel = null; }
     user = null;
     Store.reset(); // the garden stays in the account; this device's copy is removed
     setStatus('local');

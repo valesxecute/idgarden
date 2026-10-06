@@ -2,7 +2,7 @@
 import { Store } from '../core/store.js';
 import { AI } from '../core/ai.js';
 import { S, $, esc, bar, typeIcon, guessTitle } from '../ui/util.js';
-import { sheet, closeSheet, toast, notFound } from '../ui/components.js';
+import { sheet, closeSheet, toast, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 
 const STARTER = ['Get the basics: one intro resource', 'Practice: a small exercise', 'Make something with it', 'Explain it to someone'];
@@ -83,7 +83,7 @@ export const actions = {
     Store.commit();
     render(true);
   },
-  'delete-learning': (el) => { if (confirm('Delete this learning goal?')) { Store.deleteLearning(el.dataset.id); go('#/learn'); } },
+  'delete-learning': async (el) => { if (await ask('Delete this learning goal?', { yes: 'Delete', danger: true })) { Store.deleteLearning(el.dataset.id); go('#/learn'); } },
 };
 
 export const enter = {

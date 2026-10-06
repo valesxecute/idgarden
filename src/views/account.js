@@ -4,7 +4,7 @@ import { Sync } from '../core/sync.js';
 import { INTERESTS } from '../data/interests.js';
 import { sampleGarden } from '../data/sample.js';
 import { S, $, esc, avatarHTML, syncDot, SYNC_TEXT } from '../ui/util.js';
-import { toast } from '../ui/components.js';
+import { toast, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 import { resetOnboarding } from '../ui/state.js';
 import { GARDEN_STYLES, gardenStyle } from './home.js';
@@ -60,7 +60,7 @@ export const actions = {
   },
   'sync-now': () => Sync.syncNow(),
   'sign-out': async () => {
-    if (!confirm('Sign out? Your garden stays safe in your account. This device’s copy will be removed until you sign in again.')) return;
+    if (!(await ask('Sign out? Your garden stays safe in your account. This device’s copy is removed until you sign in again.', { yes: 'Sign out' }))) return;
     await Sync.signOut();
     resetOnboarding();
     location.hash = '#/';
@@ -73,8 +73,8 @@ export const actions = {
     a.click();
     URL.revokeObjectURL(a.href);
   },
-  'load-sample': () => { if (!S().ideas.length || confirm('Replace your current garden with the sample garden?')) { Store.replace(sampleGarden()); go('#/'); toast('🌿 Sample garden loaded.'); } },
-  reset: () => { if (confirm('Delete your whole garden from this device? This cannot be undone. Consider exporting first.')) { Store.reset(); resetOnboarding(); location.hash = '#/'; render(); } },
+  'load-sample': async () => { if (!S().ideas.length || (await ask('Replace your current garden with the sample garden?', { yes: 'Replace', danger: true }))) { Store.replace(sampleGarden()); go('#/'); toast('🌿 Sample garden loaded.'); } },
+  reset: async () => { if (await ask('Delete your whole garden from this device? This can’t be undone. Consider exporting first.', { yes: 'Delete everything', danger: true })) { Store.reset(); resetOnboarding(); location.hash = '#/'; render(); } },
 };
 
 export const enter = { 'sign-in-email': () => actions['sign-in-email']() };

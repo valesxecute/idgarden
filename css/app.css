@@ -514,3 +514,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .pill.new { background: var(--accent-soft); color: var(--accent); align-self: flex-start; margin-bottom: .35rem; }
 .card.disc.is-new { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .signed-in { background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; margin: 0 0 .4rem; }
+
+/* in-app confirm (ask) */
+.sheet.ask { max-width: 420px; }
+.ask-text { font-size: 1.02rem; margin: .2rem 0 .4rem; }
+.btn.danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; }

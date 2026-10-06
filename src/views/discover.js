@@ -4,7 +4,7 @@ import { AI } from '../core/ai.js';
 import { Discover } from '../data/discover.js';
 import { INTERESTS, interest } from '../data/interests.js';
 import { S, esc, short, ago, typeIcon, typeLabel, STAGE_ICON } from '../ui/util.js';
-import { toast, sheet, closeSheet, notFound } from '../ui/components.js';
+import { toast, sheet, closeSheet, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 import { ui } from '../ui/state.js';
 import { openConnections } from './capture.js';
@@ -180,5 +180,5 @@ export const actions = {
   'reflect-skip': (el) => { closeSheet(); openConnections(Store.inspiration(el.dataset.id)); },
   'connect-insp-select': (el) => { if (el.value) { Store.connectInspiration(el.dataset.insp, el.value); render(true); } },
   'disconnect-insp': (el) => { Store.disconnectInspiration(el.dataset.insp, el.dataset.idea); render(true); },
-  'delete-insp': (el) => { if (confirm('Delete this inspiration?')) { Store.deleteInspiration(el.dataset.id); ui.discoverTab = 'saved'; go('#/discover'); } },
+  'delete-insp': async (el) => { if (await ask('Delete this inspiration?', { yes: 'Delete', danger: true })) { Store.deleteInspiration(el.dataset.id); ui.discoverTab = 'saved'; go('#/discover'); } },
 };

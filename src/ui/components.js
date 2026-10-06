@@ -11,7 +11,28 @@ export function sheet(html, cls = '') {
   const f = wrap.querySelector('[data-autofocus]');
   if (f) setTimeout(() => f.focus(), 30);
 }
-export const closeSheet = () => document.querySelectorAll('.sheet-wrap').forEach((n) => n.remove());
+let pendingAsk = null; // resolve fn of an open ask(); closing the sheet any other way = "no"
+export const closeSheet = () => {
+  document.querySelectorAll('.sheet-wrap').forEach((n) => n.remove());
+  if (pendingAsk) { const r = pendingAsk; pendingAsk = null; r(false); }
+};
+
+// in-app replacement for window.confirm() (native dialogs are blocked in some browsers / installed apps)
+export function ask(text, { yes = 'Yes', no = 'Cancel', danger = false } = {}) {
+  return new Promise((resolve) => {
+    sheet(`<p class="ask-text">${esc(text)}</p>
+      <div class="row end"><button class="btn ghost" data-ask="no">${esc(no)}</button>
+      <button class="btn ${danger ? 'danger-solid' : 'primary'}" data-ask="yes" data-autofocus>${esc(yes)}</button></div>`, 'ask');
+    pendingAsk = resolve;
+    document.querySelector('.sheet.ask').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-ask]');
+      if (!b) return;
+      pendingAsk = null;
+      document.querySelectorAll('.sheet-wrap').forEach((n) => n.remove());
+      resolve(b.dataset.ask === 'yes');
+    });
+  });
+}
 
 let toastTimer;
 // actions: [[label, action, data]]

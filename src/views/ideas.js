@@ -4,7 +4,7 @@ import { AI } from '../core/ai.js';
 import { Discover } from '../data/discover.js';
 import { plantIcon } from '../garden/sprites.js';
 import { S, $, esc, short, ago, STAGE_ICON, STATUS_LABEL, STATUS_INFO, typeIcon } from '../ui/util.js';
-import { toast, sugBox, notFound } from '../ui/components.js';
+import { toast, sugBox, notFound, ask } from '../ui/components.js';
 import { render, go } from '../ui/router.js';
 import { ui } from '../ui/state.js';
 
@@ -241,7 +241,7 @@ export const actions = {
   'rm-question': (el) => { const i = Store.idea(el.dataset.id); i.questions.splice(+el.dataset.k, 1); Store.commit(); render(true); },
   'link-idea': (el) => { Store.linkIdeas(el.dataset.id, el.dataset.other); render(true); toast('🔗 Linked. Both ideas grew a little.'); },
   'unlink-idea': (el) => { Store.unlinkIdeas(el.dataset.id, el.dataset.other); render(true); },
-  'delete-idea': (el) => { if (confirm('Delete this idea for good? (Compost keeps it out of the way instead.)')) { Store.deleteIdea(el.dataset.id); go('#/ideas'); } },
+  'delete-idea': async (el) => { if (await ask('Delete this idea for good? (Compost keeps it out of the way instead.)', { yes: 'Delete', danger: true })) { Store.deleteIdea(el.dataset.id); go('#/ideas'); } },
 };
 
 export const enter = {
