@@ -1,6 +1,7 @@
 // Onboarding: login (user's sketch) → interests → first idea → organize mode → garden legend.
 import { Store } from '../core/store.js';
 import { AI } from '../core/ai.js';
+import { Sync } from '../core/sync.js';
 import { INTERESTS } from '../data/interests.js';
 import { sampleGarden } from '../data/sample.js';
 import { S, $, esc, STATUS_LABEL } from '../ui/util.js';
@@ -20,6 +21,7 @@ const SPROUTS = `<svg class="login-sprouts" viewBox="0 0 240 200" aria-hidden="t
 export function viewOnboarding() {
   const u = S().user;
   const { onb } = ui;
+  if (onb.step === 0 && Sync.user) onb.step = 1; // signed in with a new account: skip the login screen
   const dots = onb.step === 0 ? '' : `<div class="dots">${[1, 2, 3, 4].map((i) => `<span class="${i === onb.step ? 'on' : ''}"></span>`).join('')}</div>`;
   let body;
   if (onb.step === 0) {
@@ -33,7 +35,8 @@ export function viewOnboarding() {
       ${SPROUTS}
       <p class="fine">Guests keep their garden on this device and can sign in later. Nothing gets lost.</p></div>`;
   } else if (onb.step === 1) {
-    body = `<h2>What are you curious about?</h2>
+    body = `${Sync.user ? `<p class="signed-in">👋 Signed in as <strong>${esc(Sync.displayName() || Sync.user.email)}</strong>. Your garden will sync to all your devices.</p>` : ''}
+      <h2>What are you curious about?</h2>
       <p class="lead">Pick a few. This only shapes Discover, and you can change it anytime.</p>
       <div class="chips big">${INTERESTS.map((i) => `<button class="chip${u.interests.includes(i.id) ? ' on' : ''}" data-action="toggle-interest" data-id="${i.id}">${i.emoji} ${i.label}</button>`).join('')}</div>
       <button class="btn primary lg" data-action="onb-next">Continue</button>

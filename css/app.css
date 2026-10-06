@@ -513,3 +513,4 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .btn.spinning { opacity: .8; }
 .pill.new { background: var(--accent-soft); color: var(--accent); align-self: flex-start; margin-bottom: .35rem; }
 .card.disc.is-new { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.signed-in { background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; margin: 0 0 .4rem; }
