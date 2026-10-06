@@ -3,5 +3,5 @@
 export default {
   supabaseUrl: 'https://norkkufzahqbbntppmrr.supabase.co',
   supabaseAnonKey: 'sb_publishable_NCmgPpttTZfbxTCJvRB4YA_0gWJGd1V',
-  ai: false, // true once the garden-ai Edge Function + ANTHROPIC_API_KEY secret are deployed
+  ai: true, // garden-ai Edge Function (OpenAI); falls back to the simple assistant if OPENAI_API_KEY isn't set
 };

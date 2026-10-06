@@ -6,11 +6,12 @@ Vanilla JS, **native ES modules, no build step**. Static site (GitHub Pages) + S
 index.html            loads supabase-js (UMD → window.supabase) + src/main.js (module)
 src/
   main.js             boot: register views/actions/enter from each view module, wire events, Sync.init, Discover.load
-  config.js           Supabase URL + anon key ('' = guest-only)
+  config.js           Supabase URL + anon key ('' = guest-only), ai flag
   core/
     store.js          state, localStorage, CRUD, derived (ideaStage, progress, activeProjects), tombstones, meta
     sync.js           Supabase auth (Google, email link) + local-first sync/merge → plans/sync.md
     ai.js             rule-based assistant: similarity, organize, think, plan → plans/ai.md
+    assistant.js      real AI: think + plan via Sync.invoke('garden-ai'); falls back to ai.js on any error
   data/
     interests.js      interest ids = Discover groups
     discover.js       loads data/discover.json; byId, text(), inspirationType()
@@ -58,3 +59,9 @@ hashchange → render() → router picks view(params) → shell()
 | Terrarium | ideas.js + events.js drag | `[data-drag-idea]` → `[data-drop=status]` → `moveIdea` (Undo toast) |
 | Discover mix | discover.js `pickItems` | For you: interests + ~1/4 elsewhere; ≤2 per source up front; news only if chosen |
 | Scenes | scenes.js | stable hash → spot; reserved spots for trees/sunflowers |
+
+## AI (Phase 6)
+- `supabase/functions/garden-ai/index.ts`: Edge Function, OpenAI Responses API, strict JSON schema. Tasks `think` → {reply, questions}, `plan` → {estimateNote, firstSteps, milestones}
+- Secrets: `OPENAI_API_KEY` (required), `OPENAI_MODEL` (optional, default gpt-6.1-sol)
+- Gate: signed in + `bump_ai_usage()` RPC (supabase/ai_usage.sql), 60 calls/user/day
+- Client: `Assistant.available()` = cfg.ai + signed in + Account toggle on + server configured. Errors → rule-based reply + note

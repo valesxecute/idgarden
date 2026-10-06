@@ -12,6 +12,12 @@ const ERRORS = {
   ai_not_configured: 'The AI assistant isn’t set up on the server yet.',
   busy: 'The AI is busy right now. Try again in a minute.',
 };
+// server has no OPENAI_API_KEY yet: stop asking for this session, quietly use the simple assistant
+let serverOff = false;
+async function call(body) {
+  try { return await Sync.invoke('garden-ai', body); } catch (e) { if (e.code === 'ai_not_configured') serverOff = true; throw e; }
+}
+
 export const assistantErrorText = (e) => ERRORS[e?.code] || 'Couldn’t reach the AI, so the simple assistant answered instead.';
 
 const ideaFields = (i) => ({ title: Store.ideaTitle(i), content: i.content, why: i.why, tags: i.tags, questions: i.questions, notes: i.notes });
@@ -32,19 +38,19 @@ function relatedFor(idea) {
 }
 
 export const Assistant = {
-  available: () => !!cfg.ai && Sync.enabled && !!Sync.user && Store.state.user.aiEnabled !== false,
+  available: () => !!cfg.ai && !serverOff && Sync.enabled && !!Sync.user && Store.state.user.aiEnabled !== false,
 
   // → { text, questions } in the same shape as AI.think()
   async think(mode, idea, text = '') {
     const history = Store.chat(idea.id).filter((m) => !m.pending).map((m) => ({ role: m.role, text: m.text }));
-    const res = await Sync.invoke('garden-ai', { task: 'think', mode, text, idea: ideaFields(idea), related: relatedFor(idea), history });
+    const res = await call({ task: 'think', mode, text, idea: ideaFields(idea), related: relatedFor(idea), history });
     if (res.refusal) return { text: 'I can’t help with that one. Try a different angle?', questions: [] };
     return { text: res.reply, questions: res.questions?.length ? res.questions : undefined, keep: true, action: mode === 'plan' ? 'to-project' : undefined, by: 'ai' };
   },
 
   // → same shape as AI.plan(): { kind, milestones[], estimateNote, firstSteps[] }
   async plan({ idea, name, goal, done, weeks, hoursPerWeek }) {
-    const res = await Sync.invoke('garden-ai', {
+    const res = await call({
       task: 'plan', name, goal, done, weeks, hoursPerWeek,
       idea: idea ? { content: idea.content, why: idea.why } : null,
       learning: Store.state.learning.map((l) => l.topic),
