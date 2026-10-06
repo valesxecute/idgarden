@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
   if (usageError || used === null) return json({ error: "sign_in_required" }, 401);
   if (used > DAILY_LIMIT) return json({ error: "daily_limit", limit: DAILY_LIMIT }, 429);
 
-  if (!API_KEY) return json({ error: "ai_not_configured" }, 503);
+  if (!API_KEY) return json({ error: "ai_not_configured", detail: "key_missing" }, 503);
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     return json({ error: "unknown_task" }, 400);
   } catch (e) {
     if (e instanceof OpenAI.RateLimitError) return json({ error: "busy" }, 503);
-    if (e instanceof OpenAI.AuthenticationError) return json({ error: "ai_not_configured" }, 503);
+    if (e instanceof OpenAI.AuthenticationError || (e instanceof OpenAI.APIError && /api key/i.test(e.message))) { console.error("key rejected", e.status, e.message); return json({ error: "ai_not_configured", detail: "key_rejected" }, 503); }
     if (e instanceof OpenAI.APIError) { console.error(e.status, e.message); return json({ error: "ai_error", status: e.status }, 502); }
     console.error(e);
     return json({ error: "ai_error" }, 500);
