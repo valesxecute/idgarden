@@ -19,7 +19,10 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-const openai = new OpenAI(); // reads OPENAI_API_KEY
+// created on first use: the SDK throws at construction when OPENAI_API_KEY is missing,
+// which would crash every request (even the sign-in check) instead of answering "ai_not_configured"
+let openai: OpenAI | null = null;
+const client = () => (openai ??= new OpenAI());
 
 // ---------- prompts (stable text first: OpenAI caches repeated prefixes automatically) ----------
 const THINK_SYSTEM = `You are the creative partner inside Idea Garden, a calm app where people capture ideas, collect inspiration, and grow the good ones into real projects. You are talking with the owner of one idea. You can see that idea plus a few related items from their garden: other ideas, saved inspirations, learning goals and projects.
@@ -127,7 +130,7 @@ Things they are learning: ${(b.learning ?? []).slice(0, 5).map((l: any) => clip(
 }
 
 async function ask(system: string, user: string, name: string, schema: object, maxTokens: number, effort: "low" | "medium") {
-  const response = await openai.responses.create({
+  const response = await client().responses.create({
     model: MODEL,
     max_output_tokens: maxTokens,
     reasoning: { effort },
@@ -157,6 +160,8 @@ Deno.serve(async (req) => {
   const { data: used, error: usageError } = await sb.rpc("bump_ai_usage");
   if (usageError || used === null) return json({ error: "sign_in_required" }, 401);
   if (used > DAILY_LIMIT) return json({ error: "daily_limit", limit: DAILY_LIMIT }, 429);
+
+  if (!Deno.env.get("OPENAI_API_KEY")) return json({ error: "ai_not_configured" }, 503);
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
