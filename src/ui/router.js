@@ -5,7 +5,9 @@ import { Sync } from '../core/sync.js';
 
 const views = {}; // route name → (params) => html
 let onboardingView = () => '';
+const afterRender = new Set(); // (route) => void, e.g. mount the persistent 3D canvas
 export const registerViews = (map) => Object.assign(views, map);
+export const onRendered = (fn) => afterRender.add(fn);
 export const registerOnboarding = (fn) => { onboardingView = fn; };
 
 export function route() {
@@ -57,6 +59,7 @@ export function render(keepScroll = false) {
     if (keepScroll) window.scrollTo(0, y);
     const log = $('.chat-log');
     if (log) log.scrollTop = log.scrollHeight;
+    afterRender.forEach((fn) => fn(r));
   }
   $('[data-autofocus]')?.focus({ preventScroll: true });
 }

@@ -48,6 +48,26 @@ export const Assistant = {
     return { text: res.reply, questions: res.questions?.length ? res.questions : undefined, keep: true, action: mode === 'plan' ? 'to-project' : undefined, by: 'ai' };
   },
 
+  // → same shape as AI.organize(): { title, tags[], place, related[{item, why}], insps[{item, why}] }
+  // candidates come from AI.related* (embeddings when ready), so only ≤8 per kind leave the device
+  async organize(idea) {
+    const st = Store.state;
+    const ideas = AI.relatedIdeas(idea, { min: 1, limit: 8 }).map((r) => r.item);
+    const insps = AI.relatedInspirationsForIdea(idea, { min: 1, limit: 8 }).map((r) => r.item);
+    const res = await call({
+      task: 'organize',
+      idea: { ...ideaFields(idea), status: idea.status },
+      gardenTags: [...new Set(st.ideas.flatMap((i) => i.tags))],
+      ideas: ideas.map((x) => ({ id: x.id, title: Store.ideaTitle(x), content: x.content })),
+      inspirations: insps.map((s) => ({ id: s.id, title: s.title, note: s.note })),
+    });
+    if (res.refusal) throw Object.assign(new Error('refused'), { code: 'refused' });
+    const pick = (links, pool) => (links || []).map((l) => ({ item: pool.find((x) => x.id === l.id), why: l.why })).filter((r) => r.item).slice(0, 3);
+    const tags = [...new Set((res.tags || []).map((t) => t.trim().toLowerCase().replace(/^#/, '')).filter(Boolean))].slice(0, 4);
+    const place = res.place?.status && res.place.status !== 'stay' && idea.status === 'fresh' ? res.place : null;
+    return { title: idea.title ? null : res.title?.trim() || null, tags, place, related: pick(res.related, ideas), insps: pick(res.inspirations, insps), by: 'ai' };
+  },
+
   // → same shape as AI.plan(): { kind, milestones[], estimateNote, firstSteps[] }
   async plan({ idea, name, goal, done, weeks, hoursPerWeek }) {
     const res = await call({

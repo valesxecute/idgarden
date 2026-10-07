@@ -7,16 +7,16 @@ import { render, route, go } from '../ui/router.js';
 import { ui } from '../ui/state.js';
 import { moveIdea } from './ideas.js';
 
-export function openCapture() {
-  sheet(`<textarea class="capture-input" id="cap-text" rows="4" placeholder="What’s on your mind?" data-autofocus data-enter-mod="cap-save"></textarea>
+export function openCapture(text = '') {
+  sheet(`<textarea class="capture-input" id="cap-text" rows="4" placeholder="What’s on your mind?" data-autofocus data-enter-mod="cap-save">${esc(typeof text === 'string' ? text : '')}</textarea>
     <div class="row between"><button class="btn ghost sm" data-action="save-insp">🦋 Save an inspiration instead</button>
     <div class="row"><span class="fine hide-sm">Ctrl+Enter</span><button class="btn primary" data-action="cap-save">Save</button></div></div>`, 'capture');
 }
 
-function openInspiration({ ideaId = '' } = {}) {
+export function openInspiration({ ideaId = '', url = '', title = '' } = {}) {
   sheet(`<h3>Save inspiration 🦋</h3>
-    <input class="inline-input big" id="in-url" placeholder="Paste a link, or type a title" data-autofocus>
-    <input class="inline-input" id="in-title" placeholder="Title (optional)">
+    <input class="inline-input big" id="in-url" placeholder="Paste a link, or type a title" value="${esc(url)}" ${url ? '' : 'data-autofocus'}>
+    <input class="inline-input" id="in-title" placeholder="Title (optional)" value="${esc(title)}">
     <div class="chips" id="in-type">${TYPES.map(([k, l]) => `<button class="chip${k === 'article' ? ' on' : ''}" data-action="pick-type" data-type="${k}">${l}</button>`).join('')}</div>
     <details class="reflect"><summary>Reflect now <span class="muted">(optional, or later)</span></summary>
       <textarea class="inline-input" id="in-caught" rows="2" placeholder="What caught your attention?"></textarea>

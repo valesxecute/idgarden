@@ -1,6 +1,7 @@
 // Boot: register views/actions, wire events, start sync + Discover feed.
 import { Store } from './core/store.js';
 import { Sync } from './core/sync.js';
+import { Vec } from './core/embed.js';
 import { Discover } from './data/discover.js';
 import { S, esc } from './ui/util.js';
 import { closeSheet, toast } from './ui/components.js';
@@ -80,6 +81,30 @@ async function checkForUpdate() {
 checkForUpdate();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
 
+// installed app: offline shell (deployed builds only; dev serves no-store and would fight the cache)
+if ('serviceWorker' in navigator && APP_VERSION !== 'dev') navigator.serviceWorker.register('sw.js').catch((e) => console.warn('[sw]', e));
+
+// launched from a home-screen shortcut (?capture=idea|insp) or the share sheet (?share_url / share_text / share_title)
+function handleLaunch() {
+  const q = new URLSearchParams(location.search);
+  const mode = q.get('capture');
+  const shared = ['share_url', 'share_text', 'share_title'].map((k) => (q.get(k) || '').trim());
+  if (!mode && !shared.some(Boolean)) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (!S().user.onboarded) return;
+  if (mode === 'idea') return capture.openCapture();
+  if (mode === 'insp') return capture.openInspiration();
+  // many apps put the link inside the text ("Title https://…"), not in url
+  const [sUrl, sText, sTitle] = shared;
+  const url = sUrl || sText.match(/https?:\/\/\S+/)?.[0] || '';
+  const title = sTitle || sText.replace(url, '').trim();
+  if (url) capture.openInspiration({ url, title });
+  else capture.openCapture(sText || sTitle);
+}
+
 render();
+handleLaunch();
 Sync.init();
+Vec.init();
+Vec.onChange(() => { if (!typing() && !isDragging()) render(true); });
 Discover.load().then(() => { if (['discover', 'idea', 'ideas'].includes(route().name)) render(true); });

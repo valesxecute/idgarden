@@ -6,6 +6,8 @@
 // Tasks:
 //   think: Think With Me reply for one idea      → { reply, questions[] }
 //   plan:  project roadmap for the new-project wizard → { estimateNote, firstSteps[], milestones[{name, weeks, tasks[]}] }
+//   organize: suggestions for one idea → { title, tags[], place{status, why}, related[{id, why}], inspirations[{id, why}] }
+//   embed: texts[] (≤64) → { vectors[][] } (EMBED_DIMS floats each; AI_EMBED_MODEL, default gemini-embedding-001)
 // Signed-in users only; DAILY_LIMIT requests per user per day (public.bump_ai_usage, supabase/ai_usage.sql).
 import OpenAI from "npm:openai";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -13,6 +15,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("AI_API_KEY");
 const BASE_URL = Deno.env.get("AI_BASE_URL") || "https://generativelanguage.googleapis.com/v1beta/openai/";
 const MODEL = Deno.env.get("AI_MODEL") || "gemini-3.8-flash";
+const EMBED_MODEL = Deno.env.get("AI_EMBED_MODEL") || "gemini-embedding-001";
+const EMBED_DIMS = 256;
 const DAILY_LIMIT = 60;
 
 const CORS = {
@@ -44,6 +48,15 @@ The user may pick a mode:
 With no mode, respond to what they said and, if useful, end with one good question.
 
 Formatting: plain text, **bold** for emphasis, "• " for bullets. No headings, no tables. "questions" is empty unless you are proposing questions they might want to save.`;
+
+const ORGANIZE_SYSTEM = `You help organize one idea in Idea Garden, an app where people capture ideas and grow the good ones into projects. You get the idea, the tags already used in their garden, and candidate ideas and saved inspirations that might relate to it. Everything you return is only a suggestion the user accepts or ignores.
+
+Return:
+- title: a short title (2-6 words) only if the idea has no title and is longer than a sentence; otherwise "".
+- tags: 0-4 short lowercase tags. Reuse their existing tags when they fit; don't repeat tags the idea already has.
+- place: where the idea should live. "incubator" = worth actively developing now (it has depth, a clear why, or connections). "vault" = a short spark to park safely for later. "stay" = leave it where it is. Only suggest a move for ideas currently "fresh"; otherwise "stay". "why" is one short sentence.
+- related / inspirations: only candidates that genuinely connect, by id, at most 3 each. Fewer or none is fine. "why" names the actual connection in under 12 words (e.g. "same audience: first-year students"), never generic ("both are about tech").
+Never invent ids or items.`;
 
 const PLAN_SYSTEM = `You create realistic project plans for Idea Garden, an app that helps people turn ideas into real projects. Plans must fit the person's stated timeframe and weekly hours.
 
@@ -84,6 +97,33 @@ const PLAN_SCHEMA = {
     },
   },
   required: ["estimateNote", "firstSteps", "milestones"],
+  additionalProperties: false,
+};
+
+const LINKS = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { id: { type: "string" }, why: { type: "string" } },
+    required: ["id", "why"],
+    additionalProperties: false,
+  },
+};
+const ORGANIZE_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    tags: { type: "array", items: { type: "string" } },
+    place: {
+      type: "object",
+      properties: { status: { type: "string", enum: ["incubator", "vault", "stay"] }, why: { type: "string" } },
+      required: ["status", "why"],
+      additionalProperties: false,
+    },
+    related: LINKS,
+    inspirations: LINKS,
+  },
+  required: ["title", "tags", "place", "related", "inspirations"],
   additionalProperties: false,
 };
 
@@ -133,6 +173,37 @@ Why it matters to them: ${clip(b.idea?.why, 600) || "(not written)"}
 Things they are learning: ${(b.learning ?? []).slice(0, 5).map((l: any) => clip(l, 150)).join(", ") || "(none)"}`;
 }
 
+function organizePrompt(b: any): string {
+  const idea = b.idea ?? {};
+  const cands = (items: any[] | undefined, fmt: (x: any) => string) => (items ?? []).slice(0, 8).map(fmt).join("\n") || "(none)";
+  return `<idea status="${clip(idea.status, 20)}">
+title: ${clip(idea.title, 200) || "(none)"}
+text: ${clip(idea.content, 2000)}
+why it interests them: ${clip(idea.why, 600) || "(not written yet)"}
+tags: ${(idea.tags ?? []).map((t: string) => clip(t, 40)).join(", ") || "(none)"}
+</idea>
+<garden_tags>${(b.gardenTags ?? []).slice(0, 40).map((t: string) => clip(t, 40)).join(", ") || "(none)"}</garden_tags>
+<candidate_ideas>
+${cands(b.ideas, (x) => `- id=${clip(x.id, 40)} | ${clip(x.title, 200)}: ${clip(x.content, 300)}`)}
+</candidate_ideas>
+<candidate_inspirations>
+${cands(b.inspirations, (x) => `- id=${clip(x.id, 40)} | ${clip(x.title, 200)}${x.note ? ` - ${clip(x.note, 200)}` : ""}`)}
+</candidate_inspirations>`;
+}
+
+// vectors are cut to EMBED_DIMS (Matryoshka-trained models keep meaning in the leading dims)
+async function embed(texts: unknown) {
+  if (!Array.isArray(texts) || !texts.length) return { vectors: [] };
+  const input = texts.slice(0, 64).map((t) => clip(t, 2000) || "-");
+  const opts = { model: EMBED_MODEL, input, encoding_format: "float" as const };
+  let res;
+  try { res = await client().embeddings.create({ ...opts, dimensions: EMBED_DIMS }); }
+  catch (e) { if (e instanceof OpenAI.BadRequestError) res = await client().embeddings.create(opts); else throw e; }
+  const vectors = [...res.data].sort((a, b) => a.index - b.index)
+    .map((d) => d.embedding.slice(0, EMBED_DIMS).map((x) => Math.round(x * 1e4) / 1e4));
+  return { vectors };
+}
+
 async function ask(system: string, user: string, name: string, schema: object, maxTokens: number) {
   const res = await client().chat.completions.create({
     model: MODEL,
@@ -170,6 +241,8 @@ Deno.serve(async (req) => {
   try {
     if (body.task === "think") return json(await ask(THINK_SYSTEM, thinkPrompt(body), "think_reply", THINK_SCHEMA, 4000));
     if (body.task === "plan") return json(await ask(PLAN_SYSTEM, planPrompt(body), "project_plan", PLAN_SCHEMA, 8000));
+    if (body.task === "organize") return json(await ask(ORGANIZE_SYSTEM, organizePrompt(body), "organize_idea", ORGANIZE_SCHEMA, 2000));
+    if (body.task === "embed") return json(await embed(body.texts));
     return json({ error: "unknown_task" }, 400);
   } catch (e) {
     if (e instanceof OpenAI.RateLimitError) return json({ error: "busy" }, 503);

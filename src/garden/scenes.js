@@ -34,9 +34,42 @@ function drawSprites(items) {
   return items.sort((a, b) => a.y - b.y).map((it) => it.svg).join('');
 }
 
-function spritesFor(state, { ideas, projects, learning }, spot, { treeSpots, sunSpots, ideaSpots, scale = 1, treeScale = 0.62 }) {
+// floating island layout in island units (u, v ∈ -1..1), shared by the 2D island and the 3D garden.
+// Arranged positions (state.garden.layout) win over the automatic spots.
+export const POND = [-0.55, 0.32];
+const RESERVED = [[-0.42, -0.42], [0.32, -0.55], [0.02, -0.72], [0.74, -0.16], [0.8, 0.12], [0.62, -0.42], [0.7, 0.36], POND];
+let islandSpots = null;
+function spotsOnIsland() {
+  if (islandSpots) return islandSpots;
+  islandSpots = [];
+  for (let k = 0; k < 60 && islandSpots.length < 26; k++) { // golden-angle spiral, skip reserved areas
+    const r = Math.sqrt((k + 0.5) / 60) * 0.86, a = k * 2.39996;
+    const u = r * Math.cos(a), v = r * Math.sin(a);
+    if (RESERVED.some(([x, y]) => Math.hypot(x - u, (y - v) * 1.2) < 0.2)) continue;
+    islandSpots.push([u, v]);
+  }
+  return islandSpots;
+}
+export function islandPlacement(state) {
+  const { ideas, projects, learning } = sceneItems(state);
+  const L = state.garden?.layout || {};
+  const { shown, pos } = placeIdeas(ideas, spotsOnIsland());
+  return {
+    ideas: shown.map((item) => ({ item, at: L[item.id] || pos[item.id] })),
+    projects: projects.map((item, k) => ({ item, at: L[item.id] || RESERVED[k] })),
+    learning: learning.map((item, k) => ({ item, at: L[item.id] || RESERVED[3 + k] })),
+    decor: state.garden?.decor || [],
+  };
+}
+
+export const DECOR = [['bench', '🪑', 'Bench'], ['lantern', '🏮', 'Lantern'], ['mushroom', '🍄', 'Mushrooms'], ['rocks', '🪨', 'Rocks'], ['bush', '🌿', 'Bush'], ['fence', '🪵', 'Fence']];
+
+function spritesFor(state, { ideas, projects, learning }, spot, { treeSpots, sunSpots, ideaSpots, scale = 1, treeScale = 0.62, layout = {} }) {
   const out = [];
   const { shown, pos } = placeIdeas(ideas, ideaSpots);
+  shown.forEach((i) => { if (layout[i.id]) pos[i.id] = layout[i.id]; });
+  treeSpots = projects.map((p, k) => layout[p.id] || treeSpots[k]);
+  sunSpots = learning.map((l, k) => layout[l.id] || sunSpots[k]);
   const fresh = Date.now() - 6000;
   shown.forEach((idea) => {
     const p = spot(pos[idea.id]);
@@ -116,20 +149,13 @@ export function renderBox(state) {
 export function renderIsland(state) {
   const W = 400, H = 360, cx = 200, cy = 175, rx = 168, ry = 76;
   const items = sceneItems(state);
-  const pond = [-0.55, 0.32];
-  const reservedPts = [[-0.42, -0.42], [0.32, -0.55], [0.02, -0.72], [0.74, -0.16], [0.8, 0.12], [0.62, -0.42], [0.7, 0.36], pond];
-  const ideaSpots = [];
-  for (let k = 0; k < 60 && ideaSpots.length < 26; k++) { // golden-angle spiral, skip reserved areas
-    const r = Math.sqrt((k + 0.5) / 60) * 0.86, a = k * 2.39996;
-    const u = r * Math.cos(a), v = r * Math.sin(a);
-    if (reservedPts.some(([x, y]) => Math.hypot(x - u, (y - v) * 1.2) < 0.2)) continue;
-    ideaSpots.push([u, v]);
-  }
   const spot = ([u, v]) => ({ x: cx + u * rx * 0.92, y: cy + v * ry * 0.92, d: 0.84 + 0.16 * ((v + 1) / 2) });
   const { sprites, shown } = spritesFor(state, items, spot, {
-    treeSpots: reservedPts.slice(0, 3), sunSpots: reservedPts.slice(3, 7), ideaSpots, scale: 1.1, treeScale: 0.8,
+    treeSpots: RESERVED.slice(0, 3), sunSpots: RESERVED.slice(3, 7), ideaSpots: spotsOnIsland(), scale: 1.1, treeScale: 0.8, layout: state.garden?.layout,
   });
-  const p = spot(pond);
+  // decor placed in 3D shows as small emoji here
+  const decor = (state.garden?.decor || []).map((d) => { const q = spot([d.u, d.v]); return `<text x="${q.x.toFixed(1)}" y="${q.y.toFixed(1)}" text-anchor="middle" font-size="${(18 * q.d).toFixed(1)}">${DECOR.find(([k]) => k === d.kind)?.[1] || ''}</text>`; }).join('');
+  const p = spot(POND);
   return `<svg viewBox="0 0 ${W} ${H}" class="garden-svg iso-scene" role="img" aria-label="Your idea garden on a floating island">${isoDefs}
     <g class="cloud"><ellipse cx="70" cy="300" rx="34" ry="10" fill="var(--cloud)"/><circle cx="62" cy="292" r="12" fill="var(--cloud)"/></g>
     <g class="island">
@@ -141,7 +167,7 @@ export function renderIsland(state) {
       <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#grassTop)"/>
       <ellipse cx="${p.x}" cy="${p.y}" rx="30" ry="12" fill="var(--pond)"/><ellipse cx="${p.x - 8}" cy="${p.y - 3}" rx="10" ry="3" fill="#fff" opacity=".45"/>
       ${tuft(cx - 120, cy + 30)}${tuft(cx + 120, cy + 34)}${tinyFlower(cx - 20, cy + 62, FLOWER[0])}${tinyFlower(cx + 64, cy + 56, FLOWER[3])}
-      ${sprites}
+      ${decor}${sprites}
       ${!shown.length && !items.projects.length ? emptyHint(cx, cy + 20) : ''}
     </g>
   </svg>`;

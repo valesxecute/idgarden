@@ -1,6 +1,7 @@
 // Ideas tab: list (+ revisit), terrarium (incubator, drag & drop), idea page (+ quiet suggestions, organize).
 import { Store } from '../core/store.js';
 import { AI } from '../core/ai.js';
+import { Assistant, assistantErrorText } from '../core/assistant.js';
 import { Discover } from '../data/discover.js';
 import { plantIcon } from '../garden/sprites.js';
 import { S, $, esc, short, ago, STAGE_ICON, STATUS_LABEL, STATUS_INFO, typeIcon } from '../ui/util.js';
@@ -160,11 +161,29 @@ function terrariumSuggestions(inside) {
 }
 
 // ---------- idea page ----------
+// AI result (kept for the session) minus whatever was accepted since; rule-based otherwise
+function organizeSuggestions(i) {
+  const o = ui.organized;
+  if (o?.id !== i.id || !o.s) return AI.organize(i);
+  const s = o.s;
+  return {
+    title: i.title ? null : s.title,
+    tags: s.tags.filter((t) => !i.tags.includes(t)),
+    place: s.place && i.status === 'fresh' ? s.place : null,
+    related: s.related.filter((r) => !i.ideaIds.includes(r.item.id)),
+    insps: s.insps.filter((r) => !i.inspirationIds.includes(r.item.id)),
+  };
+}
+
 function organizePanel(i) {
-  const s = AI.organize(i);
+  const head = `<div class="row between"><span class="ai-label">✨ Suggestions. Accept what fits.</span><button class="x" data-action="close-organize" aria-label="Close">×</button></div>`;
+  if (ui.organized?.id === i.id && ui.organized.loading) return `<div class="card soft organize">${head}<p class="muted">Looking through your garden…</p></div>`;
+  const s = organizeSuggestions(i);
+  const note = ui.organized?.id === i.id && ui.organized.note;
   const empty = !s.tags.length && !s.related.length && !s.insps.length && !s.place && !s.title;
   return `<div class="card soft organize">
-    <div class="row between"><span class="ai-label">✨ Suggestions. Accept what fits.</span><button class="x" data-action="close-organize" aria-label="Close">×</button></div>
+    ${head}
+    ${note ? `<p class="fine">${esc(note)}</p>` : ''}
     ${empty ? '<p class="muted">Nothing to suggest right now. As your garden grows, I’ll find more connections.</p>' : ''}
     ${s.title ? `<div class="sug"><span>Title: <strong>${esc(s.title)}</strong></span><button class="btn sm" data-action="accept-title" data-id="${i.id}" data-title="${esc(s.title)}">Use</button></div>` : ''}
     ${s.tags.length ? `<div class="sug"><span>Tags:</span><div class="chips">${s.tags.map((t) => `<button class="chip" data-action="accept-tag" data-id="${i.id}" data-tag="${esc(t)}">+ #${esc(t)}</button>`).join('')}</div></div>` : ''}
@@ -233,7 +252,16 @@ export const views = { ideas: viewIdeas, idea: viewIdea };
 
 export const actions = {
   'idea-status': (el) => moveIdea(el.dataset.id, el.dataset.status, !el.dataset.undo),
-  organize: (el) => { ui.organizeFor = ui.organizeFor === el.dataset.id ? null : el.dataset.id; render(true); },
+  organize: async (el) => {
+    const id = el.dataset.id;
+    ui.organizeFor = ui.organizeFor === id ? null : id;
+    if (!ui.organizeFor || !Assistant.available() || (ui.organized?.id === id && ui.organized.s)) return render(true);
+    ui.organized = { id, loading: true };
+    render(true);
+    try { ui.organized = { id, s: await Assistant.organize(Store.idea(id)) }; }
+    catch (e) { ui.organized = { id, note: assistantErrorText(e) }; }
+    if (ui.organizeFor === id) render(true);
+  },
   'close-organize': () => { ui.organizeFor = null; render(true); },
   'accept-title': (el) => { Store.updateIdea(el.dataset.id, { title: el.dataset.title }); render(true); },
   'accept-tag': (el) => { const i = Store.idea(el.dataset.id); Store.updateIdea(i.id, { tags: [...i.tags, el.dataset.tag] }); render(true); },

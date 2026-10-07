@@ -3,6 +3,8 @@
 // replacing the bodies (see plans/ai.md) without touching the UI.
 import { Store } from './store.js';
 import { Discover } from '../data/discover.js';
+import { Vec } from './embed.js';
+import { ideaText, inspText, projText, learnText } from './texts.js';
 
 const STOP = new Set(('a an and are as at be but by can could do for from had has have how i if in into is it its just like make maybe me more my no not of on or our out over so some than that the their them then there these they thing things this to too up us was we what when where which who why will with would you your about also really get got want could should very much many one way new use using people someone something lot really able need let help idea ideas').split(' '));
 
@@ -65,24 +67,25 @@ function similarity(a, b) {
   return { score: shared.length * 2 + sharedTopics.length, shared, sharedTopics };
 }
 
-// notes are excluded: they collect kept assistant text, which made everything look related
-const ideaText = (i) => [i.title, i.content, i.why, i.tags.join(' ')].join(' ');
-const inspText = (s) => [s.title, s.note, s.caught, s.apply].join(' ');
-const projText = (p) => [p.name, p.goal, p.description].join(' ');
-const learnText = (l) => [l.topic, l.goal, l.notes, l.resources.map((r) => r.title).join(' ')].join(' ');
-
+// embeddings when both sides have a vector (signed in, AI on), keyword overlap otherwise.
+// min 1 = loose (z ≥ 1), min ≥ 2 = strict (z ≥ 1.5)
 function rank(text, items, toText, { exclude = [], min = 2, limit = 3 } = {}) {
+  const zMin = min >= 2 ? 1.5 : 1;
   return items
     .filter((x) => !exclude.includes(x.id))
-    .map((x) => ({ item: x, ...similarity(text, toText(x)) }))
-    .filter((r) => r.score >= min)
+    .map((x) => {
+      const t = toText(x), kw = similarity(text, t), v = Vec.sim(text, t);
+      return v ? { item: x, ...kw, score: v.z, ok: v.z >= zMin, meaning: true } : { item: x, ...kw, ok: kw.score >= min };
+    })
+    .filter((r) => r.ok)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
 
-const reason = (r) => r.shared.length
-  ? `both mention “${r.shared.slice(0, 2).join('”, “')}”`
-  : `both touch on ${r.sharedTopics[0]}`;
+const reason = (r) => r.why
+  || (r.shared.length ? `both mention “${r.shared.slice(0, 2).join('”, “')}”`
+    : r.meaning ? 'similar in meaning'
+    : `both touch on ${r.sharedTopics[0]}`);
 
 export const AI = {
   tokens, topicsOf, keywords, similarity, reason,
@@ -189,7 +192,7 @@ export const AI = {
       }
       case 'connect': {
         const parts = [];
-        if (related.length) parts.push(`**Ideas:**\n${related.slice(0, 3).map((r) => `• “${Store.ideaTitle(r.item)}” — ${r.shared.length || r.sharedTopics.length ? reason(r) : 'linked'}`).join('\n')}`);
+        if (related.length) parts.push(`**Ideas:**\n${related.slice(0, 3).map((r) => `• “${Store.ideaTitle(r.item)}” — ${r.shared.length || r.sharedTopics.length || r.meaning ? reason(r) : 'linked'}`).join('\n')}`);
         if (insps.length) parts.push(`**Inspirations already attached:**\n${insps.map((s) => `• ${s.title}`).join('\n')}`);
         const moreInsps = AI.relatedInspirationsForIdea(idea, { min: 1 });
         if (moreInsps.length) parts.push(`**Saved inspirations that might relate:**\n${moreInsps.map((r) => `• ${r.item.title} — ${reason(r)}`).join('\n')}`);

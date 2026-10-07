@@ -29,6 +29,7 @@ function emptyState() {
     dismissed: [],
     chats: {},
     reading: { read: {}, hidden: {}, later: [], taste: { groups: {}, sources: {}, words: {} } }, // Discover, see core/taste.js
+    garden: { layout: {}, decor: [] }, // arranged positions (item id → [u, v] on the island, -1..1) + decor [{id, kind, u, v, rot}]
     deleted: [], // tombstones so sync merges don't resurrect deleted items
     meta: { updatedAt: null, syncedAt: null, owner: null },
   };

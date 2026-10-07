@@ -549,3 +549,20 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .history { gap: 0; }
 .history-row { display: flex; flex-direction: column; gap: .1rem; padding: .6rem .2rem; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
 .history-row:hover span:first-child { text-decoration: underline; }
+
+/* 3D garden (Phase 7): canvas replaces the 2D svg once ready; bar = Arrange button / panel */
+.scene-3d { position: relative; }
+.scene-3d.is-3d > svg { display: none; }
+.garden-3d { display: block; width: 100%; cursor: grab; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+.garden-3d.arranging { touch-action: none; cursor: move; }
+.scene-3d .g3d-bar { position: absolute; right: 6px; bottom: 6px; left: 6px; display: flex; justify-content: flex-end; pointer-events: none; }
+.scene-3d .g3d-bar > * { pointer-events: auto; }
+.scene-3d:not(.is-3d) .g3d-bar { display: none; }
+.g3d-arrange { background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(4px); }
+.scene-3d:not(.is-3d) .g3d-panel { display: none; }
+.g3d-panel { margin-top: 6px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; box-shadow: 0 6px 20px rgba(60, 50, 30, .12); }
+.g3d-panel p { margin: 0 0 .3rem; }
+.g3d-panel .chips { margin: .3rem 0 .5rem; }
+.g3d-panel .row { gap: 6px; flex-wrap: wrap; }
+.g3d-tip { position: absolute; transform: translate(-50%, -100%); pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 3px 8px; font-size: .78rem; font-weight: 700; white-space: nowrap; box-shadow: 0 4px 12px rgba(0, 0, 0, .1); }
+.home-customize { text-align: center; margin: .4rem 0 0; }

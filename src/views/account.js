@@ -1,6 +1,8 @@
 // Account tab: sign-in / sync, garden style, interests, privacy, export / reset.
 import { Store } from '../core/store.js';
 import { Sync } from '../core/sync.js';
+import { Vec } from '../core/embed.js';
+import { Push } from '../core/push.js';
 import cfg from '../config.js';
 import { INTERESTS } from '../data/interests.js';
 import { sampleGarden } from '../data/sample.js';
@@ -27,15 +29,37 @@ function accountCard() {
     <div class="row"><button class="btn" data-action="sync-now">↻ Sync now</button><button class="btn" data-action="sign-out">Sign out</button></div></section>`;
 }
 
+// Android / desktop Chrome: keep the install prompt for our own button (iPhone: Share → Add to Home Screen)
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
+window.addEventListener('appinstalled', () => { installPrompt = null; });
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+function phoneCard() {
+  const install = installed() ? '<p class="muted small">✓ Installed on this device.</p>'
+    : installPrompt ? '<button class="btn" data-action="install-app">📲 Install Idea Garden</button>'
+    : `<p class="muted small">${Push.needsInstall() ? 'On iPhone: tap Share → <strong>Add to Home Screen</strong>.' : 'Use your browser menu → <strong>Install app</strong> / <strong>Add to Home screen</strong>.'} It opens like an app, works offline, and shows up when you share a link.</p>`;
+  let remind;
+  if (!Sync.user) remind = '<p class="muted small">Sign in to turn on reminders.</p>';
+  else if (!Push.supported()) remind = '<p class="muted small">This browser can’t show reminders.</p>';
+  else if (Push.needsInstall()) remind = '<p class="muted small">On iPhone, reminders work from the installed app. Add it to your Home Screen first.</p>';
+  else if (Push.blocked) remind = '<p class="muted small">Notifications are blocked for this site. Allow them in your browser’s site settings.</p>';
+  else remind = `<label class="task"><input type="checkbox" data-action="toggle-push" ${Push.on ? 'checked' : ''}> <span>Gentle reminders on this device</span></label>
+    <p class="muted small">Now and then, around 9:00: a milestone that’s due or stuck, or an idea waiting in your terrarium. At most every 3 days. No streaks.</p>
+    ${Push.on ? '<button class="btn sm ghost" data-action="test-push">Send a test</button>' : ''}`;
+  return `<section class="card"><h4>On your phone</h4>${install}${remind}</section>`;
+}
+
 function viewAccount() {
   const st = S();
   return `
     <header class="page-head"><h1>Account</h1></header>
     ${accountCard()}
-    <section class="card"><h4>Garden style</h4><p class="muted small">How your garden looks on the home screen. More ways to customize your garden are coming.</p>
+    ${phoneCard()}
+    <section class="card"><h4>Garden style</h4><p class="muted small">How your garden looks on the home screen. In the 3D island (beta) you can also move things around and add decor with ✏️ Arrange.</p>
       <div class="chips">${GARDEN_STYLES.map(([k, l]) => `<button class="chip${gardenStyle() === k ? ' on' : ''}" data-action="garden-style" data-style="${k}">${l}</button>`).join('')}</div></section>
     ${cfg.ai ? `<section class="card"><h4>AI assistant</h4>
-      <label class="task"><input type="checkbox" data-action="toggle-ai" ${st.user.aiEnabled !== false ? 'checked' : ''}> <span>Use AI for Think With Me and project plans</span></label>
+      <label class="task"><input type="checkbox" data-action="toggle-ai" ${st.user.aiEnabled !== false ? 'checked' : ''}> <span>Use AI for Think With Me, Organize, project plans and finding related items</span></label>
       <p class="muted small">${Sync.user ? 'Powered by Google Gemini (free tier). Up to 60 AI requests a day. When off, a simple assistant on your device answers instead.' : 'Sign in to use the AI assistant. Guests get the simple on-device assistant.'}</p></section>` : ''}
     <section class="card"><h4>Your name <span class="muted small">(optional)</span></h4><input class="inline-input" value="${esc(st.user.name)}" data-bind="user::name" placeholder="Used only for greetings"></section>
     <section class="card"><h4>Interests</h4><p class="muted small">Shapes Discover. For you also learns from what you read, save and mark “not interested”, and now and then slips in something different.</p>
@@ -44,7 +68,7 @@ function viewAccount() {
     <section class="card"><h4>Privacy</h4>
       <ul class="plain"><li>Your ideas are private. Nothing is ever public by default.</li>
       <li>Signed in, your garden is stored in your account so it can sync. Only you can read it.</li>
-      <li>AI assistant (when on, signed in): only the idea you’re working on plus up to 5 related items are sent to Google Gemini to write a reply or plan, never your whole garden. On the free tier Google may use this text to improve its products, so keep private details out. Turn it off anytime above.</li>
+      <li>AI assistant (when on, signed in): to write a reply, plan or suggestions, only the idea you’re working on plus a few related items (up to 8) are sent to Google Gemini, never your whole garden at once. To find related items, the text of each idea, inspiration, project and learning goal is also sent once (and again after edits) to be turned into numbers that capture its meaning; those stay on this device. On the free tier Google may use this text to improve its products, so keep private details out. Turn it off anytime above.</li>
       <li>You can export or delete everything at any time.</li></ul>
       <div class="row"><button class="btn" data-action="export">⬇ Export my garden (JSON)</button><button class="btn" data-action="load-sample">🌿 Load sample garden</button><button class="btn danger" data-action="reset">Delete everything on this device</button></div></section>`;
 }
@@ -64,10 +88,28 @@ export const actions = {
     toast(error ? 'Couldn’t send the link: ' + esc(error.message) : `📬 Check ${esc(email)} for your sign-in link.`, [], 9000);
   },
   'sync-now': () => Sync.syncNow(),
-  'toggle-ai': () => { S().user.aiEnabled = S().user.aiEnabled === false; Store.commit(); render(true); },
+  'install-app': async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; render(true); },
+  'toggle-push': async () => {
+    try {
+      if (Push.on) { await Push.disable(); toast('🔕 Reminders off on this device.'); }
+      else { await Push.enable(); toast('🔔 Reminders on. Tap “Send a test” to check.'); }
+    } catch (e) {
+      toast(e.code === 'denied' ? 'Notifications weren’t allowed, so reminders stay off.'
+        : e.code === 'no_sw' ? 'Reminders work in the published app, not in this local preview.'
+        : 'Couldn’t turn reminders on: ' + esc(e.message || 'unknown error'));
+    }
+    render(true);
+  },
+  'test-push': async () => {
+    try { const r = await Push.test(); toast(r.sent ? '📬 Test sent. It should appear in a few seconds.' : 'Nothing was sent. Try turning reminders off and on.'); }
+    catch (e) { toast(e.code === 'no_subscription' ? 'This device isn’t subscribed yet. Turn reminders off and on.' : 'The reminder service isn’t set up yet.'); }
+  },
+  'toggle-ai':() => { S().user.aiEnabled = S().user.aiEnabled === false; Store.commit(); render(true); },
   'sign-out': async () => {
     if (!(await ask('Sign out? Your garden stays safe in your account. This device’s copy is removed until you sign in again.', { yes: 'Sign out' }))) return;
+    await Push.disable().catch(() => {});
     await Sync.signOut();
+    Vec.clear();
     resetOnboarding();
     location.hash = '#/';
     render();
@@ -80,7 +122,7 @@ export const actions = {
     URL.revokeObjectURL(a.href);
   },
   'load-sample': async () => { if (!S().ideas.length || (await ask('Replace your current garden with the sample garden?', { yes: 'Replace', danger: true }))) { Store.replace(sampleGarden()); go('#/'); toast('🌿 Sample garden loaded.'); } },
-  reset: async () => { if (await ask('Delete your whole garden from this device? This can’t be undone. Consider exporting first.', { yes: 'Delete everything', danger: true })) { Store.reset(); resetOnboarding(); location.hash = '#/'; render(); } },
+  reset: async () => { if (await ask('Delete your whole garden from this device? This can’t be undone. Consider exporting first.', { yes: 'Delete everything', danger: true })) { Store.reset(); Vec.clear(); resetOnboarding(); location.hash = '#/'; render(); } },
 };
 
 export const enter = { 'sign-in-email': () => actions['sign-in-email']() };

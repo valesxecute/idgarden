@@ -50,6 +50,10 @@ function merge(a, b) {
     dismissed: [...new Set([...(a.dismissed || []), ...(b.dismissed || [])])],
     chats: { ...(older.chats || {}), ...(newer.chats || {}) },
     reading: mergeReading(older.reading, newer.reading),
+    garden: {
+      layout: { ...(older.garden?.layout || {}), ...(newer.garden?.layout || {}) },
+      decor: [...new Map([...(older.garden?.decor || []), ...(newer.garden?.decor || [])].map((d) => [d.id, d])).values()].filter((d) => !gone.has(d.id)),
+    },
     deleted,
     meta: { ...newer.meta, updatedAt: new Date().toISOString() },
   };
@@ -164,6 +168,7 @@ export const Sync = {
     return client.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
   },
   syncNow() { return queue(pull); },
+  table(name) { return client.from(name); },
   // call a Supabase Edge Function as the signed-in user; throws Error with .code from the function's {error}
   async invoke(name, body) {
     const { data, error } = await client.functions.invoke(name, { body });

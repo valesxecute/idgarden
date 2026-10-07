@@ -1,6 +1,6 @@
 # Plan: real AI behind `AI`
 
-Status 2026-10-06: `think` + `plan` live via Gemini free tier (OpenAI-compatible API) (core/assistant.js → garden-ai). `organize` + related still rules; embeddings later.
+Status 2026-10-07: `think` + `plan` live via Gemini free tier. `organize` (LLM) + related (on-device embeddings, `core/embed.js`) coded, waiting on function redeploy → [phase_6](phase_6.md).
 
 Keep the UI contract and swap the internals. Calls go through a server endpoint (Supabase Edge Function), never a browser API key.
 
